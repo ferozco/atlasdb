@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
@@ -33,9 +34,11 @@ import com.palantir.atlasdb.memory.InMemoryAtlasDbConfig;
 import com.palantir.atlasdb.spi.KeyValueServiceConfig;
 import com.palantir.atlasdb.sweep.queue.config.TargetedSweepInstallConfig;
 import com.palantir.exception.NotInitializedException;
+import com.palantir.logsafe.exceptions.SafeIllegalStateException;
 
 @JsonDeserialize(as = ImmutableAtlasDbConfig.class)
 @JsonSerialize(as = ImmutableAtlasDbConfig.class)
+@JsonIgnoreProperties("enableSweep")
 @Value.Immutable
 public abstract class AtlasDbConfig {
 
@@ -178,20 +181,6 @@ public abstract class AtlasDbConfig {
     }
 
     /**
-     * If true, a background thread will periodically delete cells that
-     * have been overwritten or deleted. This differs from scrubbing
-     * because it is an untargeted cleaning process that scans all data
-     * looking for cells to delete.
-     * @deprecated Use {@link AtlasDbRuntimeConfig#sweep#enableSweep} to make this value
-     * live-reloadable.
-     */
-    @Deprecated
-    @Value.Default
-    public boolean enableSweep() {
-        return AtlasDbConstants.DEFAULT_ENABLE_SWEEP;
-    }
-
-    /**
      * The number of milliseconds to wait between each batch of cells
      * processed by the background sweeper.
      * @deprecated Use {@link AtlasDbRuntimeConfig#sweep#getSweepPauseMillis} to make this value
@@ -294,22 +283,22 @@ public abstract class AtlasDbConfig {
 
     private void checkLeaderAndTimelockBlocks() {
         if (leader().isPresent()) {
-            Preconditions.checkState(areTimeAndLockConfigsAbsent(),
+            com.palantir.logsafe.Preconditions.checkState(areTimeAndLockConfigsAbsent(),
                     "If the leader block is present, then the lock and timestamp server blocks must both be absent.");
-            Preconditions.checkState(!timelock().isPresent(),
+            com.palantir.logsafe.Preconditions.checkState(!timelock().isPresent(),
                     "If the leader block is present, then the timelock block must be absent.");
-            Preconditions.checkState(!leader().get().leaders().isEmpty(),
+            com.palantir.logsafe.Preconditions.checkState(!leader().get().leaders().isEmpty(),
                     "Leader config must have at least one server.");
         }
 
         if (timelock().isPresent()) {
-            Preconditions.checkState(areTimeAndLockConfigsAbsent(),
+            com.palantir.logsafe.Preconditions.checkState(areTimeAndLockConfigsAbsent(),
                     "If the timelock block is present, then the lock and timestamp blocks must both be absent.");
         }
     }
 
     private void checkLockAndTimestampBlocks() {
-        Preconditions.checkState(lock().isPresent() == timestamp().isPresent(),
+        com.palantir.logsafe.Preconditions.checkState(lock().isPresent() == timestamp().isPresent(),
                 "Lock and timestamp server blocks must either both be present or both be absent.");
         checkServersListHasAtLeastOneServerIfPresent(lock());
         checkServersListHasAtLeastOneServerIfPresent(timestamp());
@@ -317,7 +306,7 @@ public abstract class AtlasDbConfig {
 
     private static void checkServersListHasAtLeastOneServerIfPresent(Optional<ServerListConfig> serverListOptional) {
         serverListOptional.ifPresent(
-                serverList -> Preconditions.checkState(serverList.hasAtLeastOneServer(),
+                serverList -> com.palantir.logsafe.Preconditions.checkState(serverList.hasAtLeastOneServer(),
                         "Server list must have at least one server."));
     }
 
@@ -325,17 +314,17 @@ public abstract class AtlasDbConfig {
         if (namespace().isPresent()) {
             String namespaceConfigValue = namespace().get();
             keyValueService().namespace().ifPresent(kvsNamespace ->
-                    Preconditions.checkState(kvsNamespace.equals(namespaceConfigValue),
+                    com.palantir.logsafe.Preconditions.checkState(kvsNamespace.equals(namespaceConfigValue),
                             "If present, keyspace/dbName/sid config should be the same as the"
                                     + " atlas root-level namespace config."));
 
             timelock().ifPresent(timelock -> timelock.client().ifPresent(client ->
-                    Preconditions.checkState(client.equals(namespaceConfigValue),
+                    com.palantir.logsafe.Preconditions.checkState(client.equals(namespaceConfigValue),
                             "If present, the TimeLock client config should be the same as the"
                                     + " atlas root-level namespace config.")));
             return namespaceConfigValue;
         } else if (!(keyValueService() instanceof InMemoryAtlasDbConfig)) {
-            Preconditions.checkState(keyValueService().namespace().isPresent(),
+            com.palantir.logsafe.Preconditions.checkState(keyValueService().namespace().isPresent(),
                     "Either the atlas root-level namespace"
                             + " or the keyspace/dbName/sid config needs to be set.");
 
@@ -344,7 +333,7 @@ public abstract class AtlasDbConfig {
             if (timelock().isPresent()) {
                 TimeLockClientConfig timeLockConfig = timelock().get();
 
-                Preconditions.checkState(timeLockConfig.client().isPresent(),
+                com.palantir.logsafe.Preconditions.checkState(timeLockConfig.client().isPresent(),
                         "Either the atlas root-level namespace config or the TimeLock client config"
                                 + " should be present.");
 
@@ -352,7 +341,8 @@ public abstract class AtlasDbConfig {
                 // (C* keyspace / Postgres dbName / Oracle sid). But changing the name of the TimeLock client
                 // will return the timestamp bound store to 0, so we also need to fast forward the new client bound
                 // to a value above of the original bound.
-                Preconditions.checkState(timeLockConfig.client().equals(Optional.of(keyValueServiceNamespace)),
+                com.palantir.logsafe.Preconditions.checkState(timeLockConfig.client().equals(
+                        Optional.of(keyValueServiceNamespace)),
                         "AtlasDB refused to start, in order to avoid potential data corruption."
                                 + " Please contact AtlasDB support to remediate this. Specific steps are required;"
                                 + " DO NOT ATTEMPT TO FIX THIS YOURSELF.");
@@ -363,9 +353,8 @@ public abstract class AtlasDbConfig {
                     "Expecting KeyvalueServiceConfig to be instance of InMemoryAtlasDbConfig, found %s",
                     keyValueService().getClass());
             if (timelock().isPresent()) {
-                return timelock().get().client()
-                        .orElseThrow(() ->
-                                new IllegalStateException("For InMemoryKVS, the TimeLock client should not be empty"));
+                return timelock().get().client().orElseThrow(() -> new SafeIllegalStateException(
+                        "For InMemoryKVS, the TimeLock client should not be empty"));
             }
             return UNSPECIFIED_NAMESPACE;
         }

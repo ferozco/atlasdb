@@ -23,8 +23,9 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.palantir.atlasdb.timelock.paxos.PaxosTimeLockConstants;
+import com.palantir.logsafe.Preconditions;
+import com.palantir.logsafe.exceptions.SafeIllegalStateException;
 import com.palantir.timelock.config.ImmutablePaxosTsBoundPersisterConfiguration;
 import com.palantir.timelock.config.TsBoundPersisterConfiguration;
 
@@ -37,7 +38,6 @@ public class TimeLockServerConfiguration extends Configuration {
 
     public static final String CLIENT_NAME_REGEX = "[a-zA-Z0-9_-]+";
 
-    private final TimeLockAlgorithmConfiguration algorithm;
     private final ClusterConfiguration cluster;
     private final Set<String> clients;
     private final boolean useClientRequestLimit;
@@ -45,7 +45,6 @@ public class TimeLockServerConfiguration extends Configuration {
     private final TsBoundPersisterConfiguration tsBoundPersisterConfiguration;
 
     public TimeLockServerConfiguration(
-            @JsonProperty(value = "algorithm", required = false) TimeLockAlgorithmConfiguration algorithm,
             @JsonProperty(value = "cluster", required = true) ClusterConfiguration cluster,
             @JsonProperty(value = "clients", required = true) Set<String> clients,
             @JsonProperty(value = "timeLimiter", required = false) TimeLimiterConfiguration timeLimiterConfiguration,
@@ -58,7 +57,6 @@ public class TimeLockServerConfiguration extends Configuration {
                     "Configuration enables clientRequestLimit but specifies non-positive number of available threads.");
         }
 
-        this.algorithm = MoreObjects.firstNonNull(algorithm, PaxosConfiguration.DEFAULT);
         this.cluster = cluster;
         this.clients = clients;
         this.useClientRequestLimit = MoreObjects.firstNonNull(useClientRequestLimit, true);
@@ -73,22 +71,19 @@ public class TimeLockServerConfiguration extends Configuration {
         }
     }
 
-    private TsBoundPersisterConfiguration getPaxosTsBoundPersisterConfiguration() {
+    private static TsBoundPersisterConfiguration getPaxosTsBoundPersisterConfiguration() {
         return ImmutablePaxosTsBoundPersisterConfiguration.builder().build();
     }
 
-    private void checkClientNames(Set<String> clientNames) {
-        clientNames.forEach(client -> Preconditions.checkState(
+    private static void checkClientNames(Set<String> clientNames) {
+        clientNames.forEach(client -> com.google.common.base.Preconditions.checkState(
                 client.matches(CLIENT_NAME_REGEX),
                 String.format("Client names must consist of alphanumeric characters, underscores or dashes only; "
                         + "'%s' does not.", client)));
-        Preconditions.checkState(!clientNames.contains(PaxosTimeLockConstants.LEADER_ELECTION_NAMESPACE),
+        com.google.common.base.Preconditions.checkState(
+                !clientNames.contains(PaxosTimeLockConstants.LEADER_ELECTION_NAMESPACE),
                 String.format("The namespace '%s' is reserved for the leader election service. Please use a different"
                         + " name.", PaxosTimeLockConstants.LEADER_ELECTION_NAMESPACE));
-    }
-
-    public TimeLockAlgorithmConfiguration algorithm() {
-        return algorithm;
     }
 
     public ClusterConfiguration cluster() {
@@ -122,7 +117,8 @@ public class TimeLockServerConfiguration extends Configuration {
 
     public int availableThreads() {
         if (!useClientRequestLimit()) {
-            throw new IllegalStateException("Should not call availableThreads() if useClientRequestLimit is disabled");
+            throw new SafeIllegalStateException(
+                    "Should not call availableThreads() if useClientRequestLimit is disabled");
         }
 
         return computeNumberOfAvailableThreads();

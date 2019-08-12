@@ -17,6 +17,7 @@ package com.palantir.atlasdb.timelock.paxos;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyObject;
 import static org.mockito.Mockito.spy;
@@ -150,7 +151,7 @@ public class PaxosTimestampBoundStoreTest {
         store = createPaxosTimestampBoundStore(0, wrapper);
         store.storeUpperLimit(TIMESTAMP_1);
         assertThat(store.getUpperLimit()).isGreaterThanOrEqualTo(TIMESTAMP_1);
-        verify(wrapper, times(2)).propose(anyLong(), anyObject());
+        verify(wrapper, times(2)).propose(anyLong(), any());
     }
 
     @Test
@@ -308,6 +309,15 @@ public class PaxosTimestampBoundStoreTest {
         public byte[] propose(long seq, @Nullable byte[] proposalValue) throws PaxosRoundFailureException {
             if (hasFailed) {
                 return delegate.propose(seq, proposalValue);
+            }
+            hasFailed = true;
+            throw new PaxosRoundFailureException("paxos fail");
+        }
+
+        @Override
+        public byte[] proposeAnonymously(long seq, @Nullable byte[] proposalValue) throws PaxosRoundFailureException {
+            if (hasFailed) {
+                return delegate.proposeAnonymously(seq, proposalValue);
             }
             hasFailed = true;
             throw new PaxosRoundFailureException("paxos fail");
