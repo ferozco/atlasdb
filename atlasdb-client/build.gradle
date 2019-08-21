@@ -31,7 +31,7 @@ idea {
 
 libsDirName = file('build/artifacts')
 
-task myTestJar(type: Jar) {
+task clientTestJar(type: Jar) {
     from sourceSets.test.output
     classifier = 'tests'
 }
@@ -41,7 +41,7 @@ configurations {
 }
 
 artifacts {
-    testArtifacts myTestJar
+    testArtifacts clientTestJar
 }
 
 dependencies {
