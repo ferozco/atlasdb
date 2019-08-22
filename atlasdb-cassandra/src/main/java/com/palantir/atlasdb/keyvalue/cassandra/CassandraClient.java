@@ -44,6 +44,7 @@ import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TProtocol;
 
 import com.palantir.atlasdb.keyvalue.api.TableReference;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 import com.palantir.processors.AutoDelegate;
 
 @SuppressWarnings({"all"}) // thrift variable names.

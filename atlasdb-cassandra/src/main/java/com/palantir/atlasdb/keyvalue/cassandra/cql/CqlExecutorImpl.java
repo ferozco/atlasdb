@@ -1,5 +1,5 @@
 /*
- * (c) Copyright 2018 Palantir Technologies Inc. All rights reserved.
+ * (c) Copyright 2019 Palantir Technologies Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.palantir.atlasdb.keyvalue.cassandra;
+package com.palantir.atlasdb.keyvalue.cassandra.cql;
 
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -48,6 +48,11 @@ import com.palantir.atlasdb.encoding.PtBytes;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.RetryLimitReachedException;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
+import com.palantir.atlasdb.keyvalue.cassandra.CassandraClient;
+import com.palantir.atlasdb.keyvalue.cassandra.CassandraClientPool;
+import com.palantir.atlasdb.keyvalue.cassandra.CassandraKeyValueServiceImpl;
+import com.palantir.atlasdb.keyvalue.cassandra.CassandraKeyValueServices;
+import com.palantir.atlasdb.keyvalue.cassandra.CassandraUtils;
 import com.palantir.atlasdb.keyvalue.cassandra.sweep.CellWithTimestamp;
 import com.palantir.atlasdb.logging.LoggingArgs;
 import com.palantir.common.annotation.Output;
@@ -67,7 +72,7 @@ public class CqlExecutorImpl implements CqlExecutor {
         CqlResult executePrepared(int queryId, List<ByteBuffer> values);
     }
 
-    CqlExecutorImpl(CassandraClientPool clientPool,
+    public CqlExecutorImpl(CassandraClientPool clientPool,
             ConsistencyLevel consistency) {
         this.queryExecutor = new QueryExecutorImpl(clientPool, consistency);
     }

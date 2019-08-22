@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.palantir.atlasdb.encoding.PtBytes;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 
 public class ProfilingCassandraClientTest {
     private static final CqlQuery CQL_QUERY = CqlQuery.builder()

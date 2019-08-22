@@ -98,6 +98,8 @@ import com.palantir.atlasdb.keyvalue.api.TimestampRangeDelete;
 import com.palantir.atlasdb.keyvalue.api.Value;
 import com.palantir.atlasdb.keyvalue.cassandra.CassandraKeyValueServices.StartTsResultsCollector;
 import com.palantir.atlasdb.keyvalue.cassandra.cas.CheckAndSetRunner;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlExecutor;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlExecutorImpl;
 import com.palantir.atlasdb.keyvalue.cassandra.paging.RowGetter;
 import com.palantir.atlasdb.keyvalue.cassandra.sweep.CandidateRowForSweeping;
 import com.palantir.atlasdb.keyvalue.cassandra.sweep.CandidateRowsForSweepingIterator;
@@ -1907,7 +1909,43 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
 
     @Override
     public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
+//        if (timestampByCell.isEmpty()) {
+//            log.info("Attempted get on '{}' table with empty cells", LoggingArgs.tableRef(tableRef));
+//            return ImmutableMap.of();
+//        }
+//
+//        try {
+//            Long firstTs = timestampByCell.values().iterator().next();
+//            if (Iterables.all(timestampByCell.values(), Predicates.equalTo(firstTs))) {
+//                return get("get", tableRef, timestampByCell.keySet(), firstTs);
+//            }
+//
+//            SetMultimap<Long, Cell> cellsByTs = Multimaps.invertFrom(
+//                    Multimaps.forMap(timestampByCell), HashMultimap.create());
+//            Builder<Cell, Value> builder = ImmutableMap.builder();
+//            for (long ts : cellsByTs.keySet()) {
+//                StartTsResultsCollector collector = new StartTsResultsCollector(metricsManager, ts);
+//                cellLoader.loadWithTs("get", tableRef, cellsByTs.get(ts), ts, false, collector, readConsistency);
+//                builder.putAll(collector.getCollectedResults());
+//            }
+//            return builder.build();
+//        } catch (Exception e) {
+//            throw Throwables.unwrapAndThrowAtlasDbDependencyException(e);
+//        }
         // TODO (OStevan): implement async
+//        if (timestampByCell.values().stream().distinct().count() == 0) {
+//            log.info("Attempted get on '{}' table with empty cells", LoggingArgs.tableRef(tableRef));
+//            return Futures.immediateFuture(ImmutableMap.of());
+//        }
+//
+//        try {
+//            SetMultimap<Long, Cell> cellsByTs = Multimaps.invertFrom(Multimaps.forMap(timestampByCell),
+//                    HashMultimap.create());
+//
+//            // TODO (OStevan): explore idea of using parallel streams to send the requests on parallel
+//
+//            cellsByTs.entries().stream()
+//        }
         return null;
     }
 }

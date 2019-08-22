@@ -66,6 +66,7 @@ import com.palantir.atlasdb.keyvalue.api.KeyValueService;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.api.TimestampRangeDelete;
 import com.palantir.atlasdb.keyvalue.api.Value;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 import com.palantir.atlasdb.keyvalue.impl.AbstractKeyValueServiceTest;
 import com.palantir.atlasdb.keyvalue.impl.TableSplittingKeyValueService;
 import com.palantir.atlasdb.logging.LoggingArgs;

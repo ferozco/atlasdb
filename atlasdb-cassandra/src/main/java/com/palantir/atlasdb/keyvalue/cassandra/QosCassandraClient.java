@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Ticker;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
+import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 import com.palantir.atlasdb.keyvalue.cassandra.thrift.Query;
 import com.palantir.atlasdb.keyvalue.cassandra.thrift.QueryWeight;
 import com.palantir.atlasdb.keyvalue.cassandra.thrift.ThriftQueryWeighers;

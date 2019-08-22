@@ -196,7 +196,7 @@ public final class CassandraKeyValueServices {
         }
     }
 
-    static String encodeAsHex(byte[] array) {
+    public static String encodeAsHex(byte[] array) {
         return "0x" + PtBytes.encodeHexString(array);
     }
 
