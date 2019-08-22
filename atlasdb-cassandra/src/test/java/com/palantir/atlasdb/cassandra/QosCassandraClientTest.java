@@ -50,7 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import com.palantir.atlasdb.encoding.PtBytes;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.cassandra.CassandraClient;
-import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
+import com.palantir.atlasdb.keyvalue.cassandra.CqlQuery;
 import com.palantir.atlasdb.keyvalue.cassandra.QosCassandraClient;
 import com.palantir.atlasdb.keyvalue.cassandra.thrift.QueryWeight;
 import com.palantir.atlasdb.keyvalue.cassandra.thrift.SlicePredicates;

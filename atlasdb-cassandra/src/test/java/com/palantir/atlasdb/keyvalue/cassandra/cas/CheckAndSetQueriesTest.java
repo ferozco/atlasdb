@@ -29,7 +29,7 @@ import com.palantir.atlasdb.encoding.PtBytes;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.CheckAndSetRequest;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
-import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
+import com.palantir.atlasdb.keyvalue.cassandra.CqlQuery;
 import com.palantir.logsafe.Arg;
 
 public class CheckAndSetQueriesTest {

@@ -55,7 +55,6 @@ import org.apache.thrift.transport.TTransportException;
 
 import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
-import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 import com.palantir.atlasdb.keyvalue.impl.AbstractKeyValueService;
 import com.palantir.logsafe.exceptions.SafeIllegalStateException;
 

@@ -31,7 +31,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.palantir.atlasdb.AtlasDbConstants;
 import com.palantir.atlasdb.encoding.PtBytes;
-import com.palantir.atlasdb.keyvalue.cassandra.cql.CqlQuery;
 import com.palantir.common.annotation.Idempotent;
 import com.palantir.common.base.Throwables;
 import com.palantir.logsafe.Preconditions;
