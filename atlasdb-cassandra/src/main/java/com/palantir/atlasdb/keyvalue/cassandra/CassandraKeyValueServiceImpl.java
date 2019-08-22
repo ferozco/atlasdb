@@ -66,6 +66,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.palantir.async.initializer.AsyncInitializer;
 import com.palantir.atlasdb.AtlasDbConstants;
@@ -1898,5 +1899,15 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             this.cell = cell;
             this.value = value;
         }
+    }
+
+    ////////////////////////////////////////////////////////////
+    // Async API
+    ////////////////////////////////////////////////////////////
+
+    @Override
+    public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
+        // TODO (OStevan): implement async
+        return null;
     }
 }

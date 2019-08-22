@@ -69,6 +69,8 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Atomics;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.AtlasDbConstants;
 import com.palantir.atlasdb.keyvalue.api.BatchColumnRangeSelection;
 import com.palantir.atlasdb.keyvalue.api.CandidateCellForSweeping;
@@ -1410,5 +1412,13 @@ public final class DbKvs extends AbstractKeyValueService {
 
     private interface ReadWriteTask<T> {
         T run(DbReadTable readTable, DbWriteTable writeTable);
+    }
+
+    ////////////////////////////////////////////////////////////
+    // Async API
+    ////////////////////////////////////////////////////////////
+    @Override
+    public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
+        return Futures.immediateFuture(get(tableRef, timestampByCell));
     }
 }

@@ -30,6 +30,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.keyvalue.api.BatchColumnRangeSelection;
 import com.palantir.atlasdb.keyvalue.api.CandidateCellForSweeping;
 import com.palantir.atlasdb.keyvalue.api.CandidateCellForSweepingRequest;
@@ -59,14 +60,14 @@ import com.palantir.util.paging.TokenBackedBasicResultsPage;
  */
 public final class TableSplittingKeyValueService implements KeyValueService {
     public static TableSplittingKeyValueService create(List<KeyValueService> delegates,
-                                                       Map<TableReference, KeyValueService> delegateByTable) {
+            Map<TableReference, KeyValueService> delegateByTable) {
         Map<Namespace, KeyValueService> delegateByNamespace = ImmutableMap.of();
         return create(delegates, delegateByTable, delegateByNamespace);
     }
 
     public static TableSplittingKeyValueService create(List<KeyValueService> delegates,
-                                                       Map<TableReference, KeyValueService> delegateByTable,
-                                                       Map<Namespace, KeyValueService> delegateByNamespace) {
+            Map<TableReference, KeyValueService> delegateByTable,
+            Map<Namespace, KeyValueService> delegateByNamespace) {
         // See comment in get all table names for why we do this.
         Map<KeyValueService, Void> map = new IdentityHashMap<KeyValueService, Void>(delegates.size());
         for (KeyValueService delegate : delegates) {
@@ -251,15 +252,15 @@ public final class TableSplittingKeyValueService implements KeyValueService {
 
     @Override
     public ClosableIterator<RowResult<Value>> getRange(TableReference tableRef,
-                                                       RangeRequest rangeRequest,
-                                                       long timestamp) {
+            RangeRequest rangeRequest,
+            long timestamp) {
         return getDelegate(tableRef).getRange(tableRef, rangeRequest, timestamp);
     }
 
     @Override
     public ClosableIterator<RowResult<Set<Long>>> getRangeOfTimestamps(TableReference tableRef,
-                                                                       RangeRequest rangeRequest,
-                                                                       long timestamp) {
+            RangeRequest rangeRequest,
+            long timestamp) {
         return getDelegate(tableRef).getRangeOfTimestamps(tableRef, rangeRequest, timestamp);
     }
 
@@ -271,9 +272,9 @@ public final class TableSplittingKeyValueService implements KeyValueService {
 
     @Override
     public Map<Cell, Value> getRows(TableReference tableRef,
-                                    Iterable<byte[]> rows,
-                                    ColumnSelection columnSelection,
-                                    long timestamp) {
+            Iterable<byte[]> rows,
+            ColumnSelection columnSelection,
+            long timestamp) {
         return getDelegate(tableRef).getRows(tableRef, rows, columnSelection, timestamp);
     }
 
@@ -288,10 +289,10 @@ public final class TableSplittingKeyValueService implements KeyValueService {
 
     @Override
     public RowColumnRangeIterator getRowsColumnRange(TableReference tableRef,
-                                                     Iterable<byte[]> rows,
-                                                     ColumnRangeSelection columnRangeSelection,
-                                                     int cellBatchHint,
-                                                     long timestamp) {
+            Iterable<byte[]> rows,
+            ColumnRangeSelection columnRangeSelection,
+            int cellBatchHint,
+            long timestamp) {
         return getDelegate(tableRef).getRowsColumnRange(tableRef, rows, columnRangeSelection, cellBatchHint, timestamp);
     }
 
@@ -392,5 +393,13 @@ public final class TableSplittingKeyValueService implements KeyValueService {
     @Override
     public boolean shouldTriggerCompactions() {
         return delegates.stream().anyMatch(KeyValueService::shouldTriggerCompactions);
+    }
+
+    ////////////////////////////////////////////////////////////
+    // Async API
+    ////////////////////////////////////////////////////////////
+    @Override
+    public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
+        return getDelegate(tableRef).getAsync(tableRef, timestampByCell);
     }
 }
