@@ -29,6 +29,8 @@ public interface StatementPreparation {
         public static String VALUE = "value";
     }
 
+    PreparedStatement prepareCurrentTimeStatement();
+
     /**
      * Creates a prepared statement used in get requests qualifying the query such that all info available for query
      * orchestration on cassandra cluster as per TokenAwarePolicy for PreparedStatements at

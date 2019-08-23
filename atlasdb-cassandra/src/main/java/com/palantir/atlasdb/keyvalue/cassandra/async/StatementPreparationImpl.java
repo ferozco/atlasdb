@@ -99,6 +99,13 @@ public final class StatementPreparationImpl implements StatementPreparation {
                 key -> session.prepare(String.format(pattern, key)));
     }
 
+    /**
+     * Returns a dummy prepared statement used to get current time
+     */
+    @Override
+    public PreparedStatement prepareCurrentTimeStatement() {
+        return session.prepare("SELECT dateof(now()) FROM system.local ;");
+    }
 
     /**
      * Prepares a statement for a given table in a specific keyspace
