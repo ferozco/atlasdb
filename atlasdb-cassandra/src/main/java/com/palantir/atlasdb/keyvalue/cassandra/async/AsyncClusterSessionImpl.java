@@ -18,40 +18,85 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+
+import javax.annotation.Nonnull;
+
+import com.codahale.metrics.Metric;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.api.Value;
+import com.palantir.common.streams.KeyedStream;
+import com.palantir.tritium.metrics.registry.MetricName;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 
 public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 
     private final StatementPreparation statementPreparation;
-
     private final Session session;
+    private final String sessionName;
+    private final Executor executor;
 
-    public static AsyncClusterSessionImpl create(Session session,
-            TaggedMetricRegistry taggedMetricRegistry) {
+    @Nonnull
+    public static AsyncClusterSessionImpl create(String clusterName, Session session,
+            TaggedMetricRegistry taggedMetricRegistry, ThreadFactory threadFactory) {
         // TODO (OStevan): profile usage and see what value for cache size makes sense
         StatementPreparation statementPreparation = StatementPreparationImpl.create(session, taggedMetricRegistry,
                 100);
-        return new AsyncClusterSessionImpl(session, statementPreparation);
+        return create(clusterName, session, statementPreparation,
+                Executors.newCachedThreadPool(threadFactory));
     }
 
-    public static AsyncClusterSessionImpl create(Session session, StatementPreparation statementPreparation) {
-        return new AsyncClusterSessionImpl(session, statementPreparation);
+    public static AsyncClusterSessionImpl create(String clusterName, Session session,
+            StatementPreparation statementPreparation, Executor executor) {
+        return new AsyncClusterSessionImpl(clusterName, session, statementPreparation, executor);
     }
 
-    private AsyncClusterSessionImpl(Session session,
-            StatementPreparation statementPreparation) {
+    private AsyncClusterSessionImpl(String sessionName, Session session, StatementPreparation statementPreparation,
+            Executor executor) {
+        this.sessionName = sessionName;
         this.session = session;
         this.statementPreparation = statementPreparation;
+        this.executor = executor;
+    }
+
+    @Nonnull
+    @Override
+    public String getSessionName() {
+        return sessionName;
+    }
+
+    @Override
+    public Map<MetricName, Metric> getMetricsSet() {
+        return KeyedStream.stream(
+                session.getCluster().getMetrics()
+                        .getRegistry()
+                        .getMetrics())
+                .mapKeys(name -> MetricName.builder().safeName(name).build())
+                .collectToMap();
+    }
+
+    @Override
+    public ListenableFuture<String> getCurrentTimeAsync() {
+        PreparedStatement preparedStatement = statementPreparation.prepareCurrentTimeStatement();
+
+        return Futures.transform(session.executeAsync(preparedStatement.bind()), result -> {
+                    Row row;
+                    StringBuilder builder = new StringBuilder();
+                    while ((row = result.one()) != null) {
+                        builder.append(row.getString(0));
+                    }
+                    return builder.toString();
+                },
+                executor);
     }
 
     @Override
@@ -72,22 +117,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 //
 //        ListenableFuture<Map<Cell, Value>> result;
 //        return result;
-        return null;
-    }
-
-    @Override
-    public ListenableFuture<String> getCurrentTimeAsync() {
-        PreparedStatement preparedStatement = statementPreparation.prepareCurrentTimeStatement();
-
-        return Futures.transform(session.executeAsync(preparedStatement.bind()), result -> {
-                    Row row;
-                    StringBuilder builder = new StringBuilder();
-                    while ((row = result.one()) != null) {
-                        builder.append(row.getString(0));
-                    }
-                    return builder.toString();
-                },
-                MoreExecutors.directExecutor());
+        throw new UnsupportedOperationException("Get is currently not supported");
     }
 
     @Override

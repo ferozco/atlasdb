@@ -19,12 +19,21 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 import java.io.Closeable;
 import java.util.Map;
 
+import javax.annotation.Nonnull;
+
+import com.codahale.metrics.Metric;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.api.Value;
+import com.palantir.tritium.metrics.registry.MetricName;
 
 public interface AsyncClusterSession extends Closeable {
+
+    Map<MetricName, Metric> getMetricsSet();
+
+    @Nonnull
+    String getSessionName();
 
     ListenableFuture<String> getCurrentTimeAsync();
 
