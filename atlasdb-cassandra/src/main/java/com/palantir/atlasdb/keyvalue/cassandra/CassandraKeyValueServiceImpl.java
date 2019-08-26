@@ -27,7 +27,9 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -67,6 +69,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.palantir.async.initializer.AsyncInitializer;
 import com.palantir.atlasdb.AtlasDbConstants;
@@ -97,6 +100,9 @@ import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.api.TimestampRangeDelete;
 import com.palantir.atlasdb.keyvalue.api.Value;
 import com.palantir.atlasdb.keyvalue.cassandra.CassandraKeyValueServices.StartTsResultsCollector;
+import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncClusterSession;
+import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncClusterSessionImpl;
+import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncSessionManager;
 import com.palantir.atlasdb.keyvalue.cassandra.cas.CheckAndSetRunner;
 import com.palantir.atlasdb.keyvalue.cassandra.paging.RowGetter;
 import com.palantir.atlasdb.keyvalue.cassandra.sweep.CandidateRowForSweeping;
@@ -206,6 +212,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
     private final MetricsManager metricsManager;
     private final CassandraKeyValueServiceConfig config;
     private final CassandraClientPool clientPool;
+    private final AsyncClusterSession asyncClusterSession;
 
     private ConsistencyLevel readConsistency = ConsistencyLevel.LOCAL_QUORUM;
 
@@ -233,7 +240,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 config,
                 CassandraClientPoolImpl.StartupChecks.RUN,
                 new Blacklist(config));
-        return createOrShutdownClientPool(metricsManager, config,
+        return createAndOpenAsyncSession(metricsManager, config,
                 CassandraKeyValueServiceRuntimeConfig::getDefault,
                 clientPool,
                 CassandraMutationTimestampProviders.legacyModeForTestsOnly(),
@@ -258,7 +265,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             CassandraMutationTimestampProvider mutationTimestampProvider,
             CassandraClientPool clientPool) {
-        return createOrShutdownClientPool(metricsManager,
+        return createAndOpenAsyncSession(metricsManager,
                 config,
                 CassandraKeyValueServiceRuntimeConfig::getDefault,
                 clientPool,
@@ -306,7 +313,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 config,
                 runtimeConfigSupplier,
                 initializeAsync);
-        return createOrShutdownClientPool(
+        return createAndOpenAsyncSession(
                 metricsManager,
                 config,
                 runtimeConfigSupplier,
@@ -316,11 +323,37 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 initializeAsync);
     }
 
+    private static CassandraKeyValueService createAndOpenAsyncSession(
+            MetricsManager metricsManager,
+            CassandraKeyValueServiceConfig config,
+            Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
+            CassandraClientPool clientPool,
+            CassandraMutationTimestampProvider mutationTimestampProvider,
+            Logger log,
+            boolean initializeAsync) {
+        try {
+            return createOrShutdownClientPool(
+                    metricsManager,
+                    config,
+                    runtimeConfigSupplier,
+                    clientPool,
+                    AsyncSessionManager.getAsyncSessionFactory().getSession(config),
+                    mutationTimestampProvider,
+                    log,
+                    initializeAsync);
+        } catch (Exception e) {
+            // TODO (OStevan): explore what happens here and how to fix it.
+            log.warn("Error occurred in creating Cassandra KVS. Cassandra async session creation failure...", e);
+            throw Throwables.rewrapAndThrowUncheckedException(e);
+        }
+    }
+
     private static CassandraKeyValueService createOrShutdownClientPool(
             MetricsManager metricsManager,
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
+            AsyncClusterSession asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider,
             Logger log,
             boolean initializeAsync) {
@@ -330,6 +363,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                     config,
                     runtimeConfigSupplier,
                     clientPool,
+                    asyncClusterSession,
                     mutationTimestampProvider,
                     log,
                     initializeAsync);
@@ -351,6 +385,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
+            AsyncClusterSession asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider,
             Logger log,
             boolean initializeAsync) {
@@ -360,6 +395,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 config,
                 runtimeConfigSupplier,
                 clientPool,
+                asyncClusterSession,
                 mutationTimestampProvider);
         keyValueService.wrapper.initialize(initializeAsync);
         return keyValueService.wrapper.isInitialized() ? keyValueService : keyValueService.wrapper;
@@ -371,12 +407,14 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
+            AsyncClusterSession asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider) {
         super(createInstrumentedFixedThreadPool(config, metricsManager.getRegistry()));
         this.log = log;
         this.metricsManager = metricsManager;
         this.config = config;
         this.clientPool = clientPool;
+        this.asyncClusterSession = asyncClusterSession;
         this.mutationTimestampProvider = mutationTimestampProvider;
         this.queryRunner = new TracingQueryRunner(log, tracingPrefs);
         this.wrappingQueryRunner = new WrappingQueryRunner(queryRunner);
@@ -397,6 +435,21 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
         this.cassandraTableTruncator = new CassandraTableTruncator(queryRunner, clientPool);
         this.cassandraTableDropper = new CassandraTableDropper(config, clientPool, tableMetadata,
                 cassandraTableTruncator);
+
+        // temp stupid runner for testing running
+
+        ListenableFuture<String> future = this.asyncClusterSession.getCurrentTimeAsync();
+
+        future.addListener(() -> {
+            try {
+                log.info("Time received from Cassandra cluster async:" + future.get());
+            } catch (InterruptedException e) {
+                log.info("Interrupted exception on async time request", e);
+            } catch (ExecutionException e) {
+                log.info("Execution exception on test time of cluster", e);
+            }
+        }, MoreExecutors.directExecutor());
+
     }
 
     private static ExecutorService createInstrumentedFixedThreadPool(CassandraKeyValueServiceConfig config,

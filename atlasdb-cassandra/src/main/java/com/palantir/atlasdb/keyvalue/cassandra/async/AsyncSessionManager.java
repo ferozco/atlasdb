@@ -20,6 +20,7 @@ import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -100,10 +101,11 @@ public final class AsyncSessionManager {
 
     // TODO (OStevan): probably very much semantically incorrect, might make sense to call it
     //  CassandraClusterConnectionConfig
-    public ListenableFuture<AsyncClusterSession> getSession(CassandraKeyValueServiceConfig config) {
+    public AsyncClusterSession getSession(CassandraKeyValueServiceConfig config)
+            throws ExecutionException, InterruptedException {
         return createSession(Objects.requireNonNull(clusters.get(ImmutableUniqueCassandraCluster.of(config.servers()),
                 uniqueCassandraCluster -> createCluster(config)
-        )));
+        ))).get();
     }
 
 

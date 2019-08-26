@@ -120,6 +120,8 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
         throw new UnsupportedOperationException("Get is currently not supported");
     }
 
+    // TODO (OStevan): might make sense to keep a reference to unique ImmutableUniqueCassandraCluster and use it to
+    //  close cluster connections one all sessions of the cluster are closed
     @Override
     public void close() throws IOException {
         session.close();
