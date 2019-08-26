@@ -35,15 +35,17 @@ public final class StatementPreparationImpl implements StatementPreparation {
     // currently supported operations and query patterns for each operation
     /**
      * The prepared statement is for a single row instead of a more general in statement (implemented like this to help
-     * the token aware policy, might be wrong solution to have this implementation specific)
+     * the token aware policy, might be wrong solution to have this implementation specific).
      */
     // TODO (OStevan): possibly wrong and should verify this more in docs and find a solution for this,
     //  might be worthwhile to simplify this and make it more understandable. Also there is probably a better way of
     //  constructing this string
     private static final String GET = "get";
-    private static final String GET_PATTERN = "SELECT * FROM %s WHERE " + FieldNameProvider.ROW + " =:" +
-            FieldNameProvider.ROW  + " AND " + FieldNameProvider.COLUMN + " =:" + FieldNameProvider.COLUMN + " AND " +
-            FieldNameProvider.TIMESTAMP + " >:" + FieldNameProvider.TIMESTAMP + " ;";
+    private static final String GET_PATTERN =
+            "SELECT * FROM %s "
+                    + "WHERE " + FieldNameProvider.row + " =:" + FieldNameProvider.row
+                    + " AND " + FieldNameProvider.column + " =:" + FieldNameProvider.column
+                    + " AND " + FieldNameProvider.timestamp + " >:" + FieldNameProvider.timestamp + " ;";
 
     // all supported operations
     private static final Stream<String> SUPPORTED_OPERATIONS = ImmutableSet.of(GET).stream();
@@ -67,7 +69,8 @@ public final class StatementPreparationImpl implements StatementPreparation {
         throw new UnsupportedOperationException("Config parameters not defined for statement preparation cache");
     }
 
-    public static StatementPreparationImpl create(Session session, TaggedMetricRegistry taggedMetricRegistry, int cacheSize) {
+    public static StatementPreparationImpl create(Session session, TaggedMetricRegistry taggedMetricRegistry,
+            int cacheSize) {
         return new StatementPreparationImpl(session,
                 taggedMetricRegistry,
                 SUPPORTED_OPERATIONS.collect(Collectors.collectingAndThen(
@@ -100,7 +103,7 @@ public final class StatementPreparationImpl implements StatementPreparation {
     }
 
     /**
-     * Returns a dummy prepared statement used to get current time
+     * Returns a dummy prepared statement used to get current time.
      */
     @Override
     public PreparedStatement prepareCurrentTimeStatement() {
@@ -108,7 +111,8 @@ public final class StatementPreparationImpl implements StatementPreparation {
     }
 
     /**
-     * Prepares a statement for a given table in a specific keyspace
+     * Prepares a statement for a given table in a specific keyspace.
+     *
      * @param keyspace of the table
      * @param tableReference of the table where data is stored
      * @return prepared statement for further use

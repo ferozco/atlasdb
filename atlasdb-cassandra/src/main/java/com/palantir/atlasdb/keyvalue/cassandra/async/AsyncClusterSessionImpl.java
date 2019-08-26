@@ -88,15 +88,15 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     public ListenableFuture<String> getCurrentTimeAsync() {
         PreparedStatement preparedStatement = statementPreparation.prepareCurrentTimeStatement();
 
-        return Futures.transform(session.executeAsync(preparedStatement.bind()), result -> {
+        return Futures.transform(session.executeAsync(preparedStatement.bind()),
+                result -> {
                     Row row;
                     StringBuilder builder = new StringBuilder();
                     while ((row = result.one()) != null) {
                         builder.append(row.getString(0));
                     }
                     return builder.toString();
-                },
-                executor);
+                }, executor);
     }
 
     @Override
@@ -109,9 +109,9 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 //            Cell key = entry.getKey();
 //            Long value = entry.getValue();
 //            BoundStatement boundStatement = preparedStatement.bind()
-//                    .setBytes(StatementPreparation.FieldNameProvider.ROW, ByteBuffer.wrap(key.getRowName()))
-//                    .setBytes(StatementPreparation.FieldNameProvider.COLUMN, ByteBuffer.wrap(key.getColumnName()))
-//                    .setLong(StatementPreparation.FieldNameProvider.TIMESTAMP, value);
+//                    .setBytes(StatementPreparation.FieldNameProvider.row, ByteBuffer.wrap(key.getRowName()))
+//                    .setBytes(StatementPreparation.FieldNameProvider.column, ByteBuffer.wrap(key.getColumnName()))
+//                    .setLong(StatementPreparation.FieldNameProvider.timestamp, value);
 //            return session.executeAsync(boundStatement);
 //        }).collect(Collectors.toList()));
 //

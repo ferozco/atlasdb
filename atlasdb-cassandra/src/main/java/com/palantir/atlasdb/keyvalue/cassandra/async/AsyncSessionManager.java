@@ -126,7 +126,7 @@ public final class AsyncSessionManager {
                 .withThreadingOptions(new ThreadingOptions());
 
 
-        return createCluster(clusterBuilder);
+        return buildCluster(clusterBuilder);
     }
 
     private ListenableFuture<AsyncClusterSession> createSession(Cluster cluster) {
@@ -157,10 +157,11 @@ public final class AsyncSessionManager {
                             .build();
                 }).orElse(
                 config.ssl().map(option -> {
-                    if (option)
+                    if (option) {
                         return RemoteEndpointAwareJdkSSLOptions.builder().build();
-                    else
+                    } else {
                         return null;
+                    }
                 }).orElse(null)
         );
     }
@@ -203,7 +204,7 @@ public final class AsyncSessionManager {
         return DefaultRetryPolicy.INSTANCE;
     }
 
-    private static Cluster createCluster(Cluster.Builder clusterBuilder) {
+    private static Cluster buildCluster(Cluster.Builder clusterBuilder) {
         Cluster cluster;
         //        Metadata metadata;
         try {

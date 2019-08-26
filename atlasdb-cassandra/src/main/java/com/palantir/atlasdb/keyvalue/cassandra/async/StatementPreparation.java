@@ -23,18 +23,22 @@ public interface StatementPreparation {
 
     // TODO (OStevan): check if this already exists somewhere
     class FieldNameProvider {
-        public static String ROW = "key";
-        public static String COLUMN = "column1";
-        public static String TIMESTAMP = "column2";
-        public static String VALUE = "value";
+        public static String row = "key";
+        public static String column = "column1";
+        public static String timestamp = "column2";
+        public static String value = "value";
+
+        protected FieldNameProvider() {}
     }
 
     PreparedStatement prepareCurrentTimeStatement();
 
     /**
-     * Creates a prepared statement used in get requests qualifying the query such that all info available for query
-     * orchestration on cassandra cluster as per TokenAwarePolicy for PreparedStatements at
+     * Creates a prepared statement used in get requests. Qualifies the query such that all info is available for
+     * orchestration on cassandra cluster as per TokenAwarePolicy for PreparedStatements.
+     *
      * https://docs.datastax.com/en/developer/java-driver/3.6/manual/load_balancing/#token-aware-policy
+     *
      * @param keyspace where table of the data
      * @param tableReference of the table we are targeting
      * @return prepared statement for get request
