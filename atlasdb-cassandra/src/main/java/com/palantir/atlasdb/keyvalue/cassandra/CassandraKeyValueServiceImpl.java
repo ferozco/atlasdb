@@ -341,7 +341,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                     initializeAsync);
         } catch (Exception e) {
             // TODO (OStevan): explore what errors could happen here for async
-            log.warn("Error occurred in creating Cassandra KVS. Now attempting to shut down client pool...", e);
+            log.warn("Error occurred in creating Cassandra KVS. CQL cluster/session creation error...", e);
             try {
                 clientPool.shutdown();
                 log.info("Cassandra client pool shut down.");
