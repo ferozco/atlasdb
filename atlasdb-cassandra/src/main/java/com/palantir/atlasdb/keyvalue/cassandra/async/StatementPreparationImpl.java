@@ -48,7 +48,7 @@ public final class StatementPreparationImpl implements StatementPreparation {
                     + " AND " + FieldNameProvider.timestamp + " >:" + FieldNameProvider.timestamp + " ;";
 
     // all supported operations
-    private static final Stream<String> SUPPORTED_OPERATIONS = ImmutableSet.of(GET).stream();
+    private static final ImmutableSet<String> SUPPORTED_OPERATIONS = ImmutableSet.of(GET);
 
     private static Cache<String, PreparedStatement> createAndRegisterCache(TaggedMetricRegistry taggedMetricRegistry,
             String operation, int cacheSize) {
@@ -73,7 +73,7 @@ public final class StatementPreparationImpl implements StatementPreparation {
             int cacheSize) {
         return new StatementPreparationImpl(session,
                 taggedMetricRegistry,
-                SUPPORTED_OPERATIONS.collect(Collectors.collectingAndThen(
+                SUPPORTED_OPERATIONS.stream().collect(Collectors.collectingAndThen(
                         Collectors.toMap(
                                 Functions.identity(),
                                 operation -> createAndRegisterCache(taggedMetricRegistry, operation, cacheSize)

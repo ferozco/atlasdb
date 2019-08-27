@@ -93,7 +93,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
                     Row row;
                     StringBuilder builder = new StringBuilder();
                     while ((row = result.one()) != null) {
-                        builder.append(row.getString(0));
+                        builder.append(row.getTimestamp(0));
                     }
                     return builder.toString();
                 }, executor);

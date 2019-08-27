@@ -41,6 +41,7 @@ import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.core.SSLOptions;
 import com.datastax.driver.core.ThreadingOptions;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
+import com.datastax.driver.core.policies.AddressTranslator;
 import com.datastax.driver.core.policies.DefaultRetryPolicy;
 import com.datastax.driver.core.policies.LatencyAwarePolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
@@ -108,6 +109,24 @@ public final class AsyncSessionManager {
         ))).get();
     }
 
+    private static class Bla implements AddressTranslator {
+
+        @Override
+        public void init(Cluster cluster) {
+
+        }
+
+        @Override
+        public InetSocketAddress translate(InetSocketAddress address) {
+            return InetSocketAddress.createUnresolved("localhost", 9042);
+        }
+
+        @Override
+        public void close() {
+
+        }
+    }
+
 
     private Cluster createCluster(CassandraKeyValueServiceConfig config) {
         long curId = cassandraId.getAndIncrement();
@@ -125,6 +144,7 @@ public final class AsyncSessionManager {
                 .withQueryOptions(queryOptions(config))
                 .withRetryPolicy(retryPolicy(config))
                 .withSSL(sslOptions(config))
+                .withAddressTranslator(new Bla())
                 .withThreadingOptions(new ThreadingOptions());
 
 
@@ -146,7 +166,7 @@ public final class AsyncSessionManager {
 
     private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config) {
         return config.servers().stream().map(
-                address -> new InetSocketAddress(address.getHostName(), 9042)).collect(
+                address -> new InetSocketAddress("localhost", 9042)).collect(
                 Collectors.toList());
     }
 
