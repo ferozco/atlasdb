@@ -27,8 +27,10 @@ import com.palantir.atlasdb.cassandra.ImmutableCassandraKeyValueServiceConfig;
 import com.palantir.atlasdb.config.ImmutableLeaderConfig;
 import com.palantir.atlasdb.config.LeaderConfig;
 import com.palantir.atlasdb.keyvalue.cassandra.CassandraKeyValueServiceImpl;
+import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncSessionManager;
 import com.palantir.docker.compose.DockerComposeRule;
 import com.palantir.docker.compose.connection.waiting.SuccessOrFailure;
+import com.palantir.tritium.metrics.registry.SharedTaggedMetricRegistries;
 
 public class CassandraContainer extends Container {
     static final int CASSANDRA_PORT = 9160;
@@ -87,8 +89,11 @@ public class CassandraContainer extends Container {
 
     @Override
     public SuccessOrFailure isReady(DockerComposeRule rule) {
-        return SuccessOrFailure.onResultOf(() -> CassandraKeyValueServiceImpl.createForTesting(config)
-                .isInitialized());
+        return SuccessOrFailure.onResultOf(() -> {
+            AsyncSessionManager.initialize(SharedTaggedMetricRegistries.getSingleton());
+            return CassandraKeyValueServiceImpl.createForTesting(config)
+                    .isInitialized();
+        });
     }
 
     @Override
