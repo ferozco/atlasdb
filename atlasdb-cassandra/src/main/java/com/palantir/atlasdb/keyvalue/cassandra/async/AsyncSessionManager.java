@@ -18,6 +18,7 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 
 import java.net.InetSocketAddress;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +42,7 @@ import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.core.SSLOptions;
 import com.datastax.driver.core.ThreadingOptions;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
+import com.datastax.driver.core.policies.AddressTranslator;
 import com.datastax.driver.core.policies.DefaultRetryPolicy;
 import com.datastax.driver.core.policies.LatencyAwarePolicy;
 import com.datastax.driver.core.policies.LoadBalancingPolicy;
@@ -108,6 +110,30 @@ public final class AsyncSessionManager {
         ))).get();
     }
 
+    static class SimpleAddressTranslator implements AddressTranslator {
+
+        private final Map<String, InetSocketAddress> mapper;
+
+        SimpleAddressTranslator(CassandraKeyValueServiceConfig config) {
+            this.mapper = config.addressTranslation();
+        }
+
+        @Override
+        public void init(Cluster cluster) {
+
+        }
+
+        @Override
+        public InetSocketAddress translate(InetSocketAddress address) {
+            return mapper.getOrDefault(address.getHostString(), address);
+        }
+
+        @Override
+        public void close() {
+
+        }
+    }
+
 
     private Cluster createCluster(CassandraKeyValueServiceConfig config) {
         long curId = cassandraId.getAndIncrement();
@@ -115,8 +141,11 @@ public final class AsyncSessionManager {
 
         log.info("Creating cluster {}", SafeArg.of("clusterId", clusterName));
 
+        SimpleAddressTranslator mapper = new SimpleAddressTranslator(config);
+
+
         Cluster.Builder clusterBuilder = Cluster.builder()
-                .addContactPointsWithPorts(contactPoints(config))
+                .addContactPointsWithPorts(contactPoints(config, mapper))
                 .withClusterName(clusterName) // for JMX Metrics
                 .withCredentials(config.credentials().username(), config.credentials().password())
                 .withCompression(ProtocolOptions.Compression.LZ4)
@@ -125,6 +154,7 @@ public final class AsyncSessionManager {
                 .withQueryOptions(queryOptions(config))
                 .withRetryPolicy(retryPolicy(config))
                 .withSSL(sslOptions(config))
+                .withAddressTranslator(mapper)
                 .withThreadingOptions(new ThreadingOptions());
 
 
@@ -144,9 +174,10 @@ public final class AsyncSessionManager {
                 MoreExecutors.directExecutor());
     }
 
-    private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config) {
+    private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config,
+            SimpleAddressTranslator mapper) {
         return config.servers().stream().map(
-                address -> new InetSocketAddress(address.getHostName(), 9042)).collect(
+                mapper::translate).collect(
                 Collectors.toList());
     }
 

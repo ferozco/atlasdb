@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
 import com.palantir.atlasdb.cassandra.ImmutableCassandraCredentialsConfig;
@@ -68,6 +69,8 @@ public class CassandraContainer extends Container {
                 .mutationBatchSizeBytes(10000000)
                 .fetchBatchCount(1000)
                 .replicationFactor(1)
+                .addressTranslation(ImmutableMap.of("cassandra",
+                        new InetSocketAddress("localhost", 9042)))
                 .build();
         this.dockerComposeFile = dockerComposeFile;
         this.name = name;
