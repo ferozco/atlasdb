@@ -21,12 +21,9 @@ import java.util.stream.Collectors;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
-import com.palantir.atlasdb.keyvalue.api.TableReference;
-import com.palantir.tritium.metrics.caffeine.CaffeineCacheStats;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 public final class PerOperationStatementPreparation extends AbstractStatementPreparation {

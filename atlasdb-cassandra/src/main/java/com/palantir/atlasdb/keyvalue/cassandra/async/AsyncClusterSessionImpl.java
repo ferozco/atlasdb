@@ -49,8 +49,8 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     public static AsyncClusterSessionImpl create(String clusterName, Session session,
             TaggedMetricRegistry taggedMetricRegistry, ThreadFactory threadFactory) {
         // TODO (OStevan): profile usage and see what value for cache size makes sense
-        StatementPreparation statementPreparation = PerOperationStatementPreparation.create(session, taggedMetricRegistry,
-                100);
+        StatementPreparation statementPreparation = PerOperationStatementPreparation.create(session,
+                taggedMetricRegistry, 100);
         return create(clusterName, session, statementPreparation,
                 Executors.newCachedThreadPool(threadFactory));
     }

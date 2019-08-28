@@ -146,7 +146,7 @@ public final class AsyncSessionManager {
 
     private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config) {
         return config.servers().stream().map(
-                address -> new InetSocketAddress("localhost", 9042)).collect(
+                address -> new InetSocketAddress(address.getHostName(), 9042)).collect(
                 Collectors.toList());
     }
 
