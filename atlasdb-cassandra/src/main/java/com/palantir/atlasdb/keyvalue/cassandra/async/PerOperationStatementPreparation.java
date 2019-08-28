@@ -66,12 +66,4 @@ public final class PerOperationStatementPreparation extends AbstractStatementPre
         return requestToCacheMap.get(operation).get(normalizedName,
                 key -> session.prepare(String.format(pattern, key)));
     }
-
-    /**
-     * Returns a dummy prepared statement used to get current time.
-     */
-    @Override
-    public PreparedStatement prepareCurrentTimeStatement() {
-        return session.prepare("SELECT dateof(now()) FROM system.local ;");
-    }
 }

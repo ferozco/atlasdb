@@ -19,6 +19,9 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 import com.datastax.driver.core.PreparedStatement;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 
+/**
+ * Should not be shared between different sessions.
+ */
 public interface StatementPreparation {
 
     // TODO (OStevan): check if this already exists somewhere
@@ -31,6 +34,10 @@ public interface StatementPreparation {
         protected FieldNameProvider() {}
     }
 
+    /**
+     * Simple health check query, reads the current time from the system table on cassandra cluster.
+     * @return statement to get data from a cluster
+     */
     PreparedStatement prepareCurrentTimeStatement();
 
     /**

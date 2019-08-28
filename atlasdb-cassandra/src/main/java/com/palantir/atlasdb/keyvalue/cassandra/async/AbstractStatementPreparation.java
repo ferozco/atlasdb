@@ -26,7 +26,10 @@ import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 public abstract class AbstractStatementPreparation implements StatementPreparation {
     protected static final String ALL = "all";
+    protected static final String TIME = "time";
     protected static final String GET = "get";
+
+    protected static final String TIME_PATTERN = "SELECT dateof(now()) FROM %s.local ;";
     protected static final String GET_PATTERN =
             "SELECT * FROM %s "
                     + "WHERE " + FieldNameProvider.row + " =:" + FieldNameProvider.row
@@ -61,5 +64,13 @@ public abstract class AbstractStatementPreparation implements StatementPreparati
     @Override
     public PreparedStatement prepareGetStatement(String keyspace, TableReference tableReference) {
         return prepareStatement(GET, GET_PATTERN, normalizeName(keyspace, tableReference));
+    }
+
+    /**
+     * Returns a dummy prepared statement used to get current time.
+     */
+    @Override
+    public PreparedStatement prepareCurrentTimeStatement() {
+        return prepareStatement(TIME, TIME_PATTERN, "system");
     }
 }
