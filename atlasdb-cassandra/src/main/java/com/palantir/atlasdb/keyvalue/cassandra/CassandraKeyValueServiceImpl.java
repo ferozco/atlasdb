@@ -335,7 +335,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                     config,
                     runtimeConfigSupplier,
                     clientPool,
-                    AsyncSessionManager.getAsyncSessionFactory().getSession(config),
+                    AsyncSessionManager.getAsyncSessionFactory().getAsyncSession(config),
                     mutationTimestampProvider,
                     log,
                     initializeAsync);
@@ -1653,6 +1653,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
     @Override
     public void close() {
         clientPool.shutdown();
+        asyncClusterSession.close();
         super.close();
     }
 

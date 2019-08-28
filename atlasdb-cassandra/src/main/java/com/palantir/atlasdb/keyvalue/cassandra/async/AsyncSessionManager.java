@@ -19,14 +19,13 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nonnull;
 import javax.net.ssl.SSLContext;
 
 import org.immutables.value.Value;
@@ -40,6 +39,7 @@ import com.datastax.driver.core.ProtocolOptions;
 import com.datastax.driver.core.QueryOptions;
 import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
 import com.datastax.driver.core.SSLOptions;
+import com.datastax.driver.core.Session;
 import com.datastax.driver.core.ThreadingOptions;
 import com.datastax.driver.core.exceptions.NoHostAvailableException;
 import com.datastax.driver.core.policies.AddressTranslator;
@@ -52,9 +52,7 @@ import com.datastax.driver.core.policies.TokenAwarePolicy;
 import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.github.benmanes.caffeine.cache.RemovalListener;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
 import com.palantir.conjure.java.config.ssl.SslSocketFactories;
@@ -63,51 +61,26 @@ import com.palantir.logsafe.SafeArg;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 public final class AsyncSessionManager {
+
     // helper interfaces, automatically generated
     @Value.Immutable
-    public interface UniqueCassandraCluster {
+    interface UniqueCassandraCluster {
         @Value.Parameter
         Set<InetSocketAddress> servers();
     }
 
-    // class fields and methods
-    private static final Logger log = LoggerFactory.getLogger(AsyncSessionManager.class);
-    private static final AtomicReference<AsyncSessionManager> FACTORY = new AtomicReference<>(null);
-
-    public static void initialize(TaggedMetricRegistry taggedMetricRegistry) {
-        Preconditions.checkState(
-                null == FACTORY.getAndUpdate(
-                        previous ->
-                                previous == null ? new AsyncSessionManager(taggedMetricRegistry) : previous
-                ),
-                "Already initialized");
-    }
-
-    public static AsyncSessionManager getAsyncSessionFactory() {
-        AsyncSessionManager factory = FACTORY.get();
-        Preconditions.checkState(factory != null, "AsyncSessionManager is not initialized");
-        return factory;
-    }
-
-
-    // instance fields and methods
-    private final TaggedMetricRegistry taggedMetricRegistry;
-    private final Cache<UniqueCassandraCluster, Cluster> clusters = Caffeine.newBuilder().build();
-    private final AtomicLong cassandraId = new AtomicLong();
-    // global for all sessions
-    private final AtomicLong sessionId = new AtomicLong();
-
-    private AsyncSessionManager(TaggedMetricRegistry taggedMetricRegistry) {
-        this.taggedMetricRegistry = taggedMetricRegistry;
-    }
-
-    // TODO (OStevan): probably very much semantically incorrect, might make sense to call it
-    //  CassandraClusterConnectionConfig
-    public AsyncClusterSession getSession(CassandraKeyValueServiceConfig config)
-            throws ExecutionException, InterruptedException {
-        return createSession(Objects.requireNonNull(clusters.get(ImmutableUniqueCassandraCluster.of(config.servers()),
-                uniqueCassandraCluster -> createCluster(config)
-        ))).get();
+    /**
+     * Creating one session per cluster, in this case the underlying session is shared between different C* KVS as long
+     * as they are trying to connect to the same cluster.
+     */
+    @Value.Immutable
+    interface CassandraClusterSessionPair {
+        @Value.Parameter
+        @Nonnull
+        Cluster cluster();
+        @Value.Parameter
+        @Nonnull
+        Session session();
     }
 
     static class SimpleAddressTranslator implements AddressTranslator {
@@ -132,6 +105,81 @@ public final class AsyncSessionManager {
         public void close() {
 
         }
+    }
+
+    // class fields and methods
+    private static final Logger log = LoggerFactory.getLogger(AsyncSessionManager.class);
+    private static final AtomicReference<AsyncSessionManager> FACTORY = new AtomicReference<>(null);
+
+    public static void initialize(TaggedMetricRegistry taggedMetricRegistry) {
+        Preconditions.checkState(
+                null == FACTORY.getAndUpdate(
+                        previous ->
+                                previous == null ? new AsyncSessionManager(taggedMetricRegistry) : previous
+                ),
+                "Already initialized");
+    }
+
+    public static AsyncSessionManager getAsyncSessionFactory() {
+        AsyncSessionManager factory = FACTORY.get();
+        Preconditions.checkState(factory != null, "AsyncSessionManager is not initialized");
+        return factory;
+    }
+
+
+    // instance fields and methods
+    private final TaggedMetricRegistry taggedMetricRegistry;
+    private final Cache<UniqueCassandraCluster, CassandraClusterSessionPair> clusters = Caffeine.newBuilder()
+            .weakValues()
+            .removalListener(
+                    (RemovalListener<UniqueCassandraCluster, CassandraClusterSessionPair>) (key, value, cause) -> {
+                        value.session().close();
+                        value.cluster().close();
+                    })
+            .build();
+
+    private final AtomicLong cassandraId = new AtomicLong();
+    // global for all sessions
+    private final AtomicLong sessionId = new AtomicLong();
+
+    private AsyncSessionManager(TaggedMetricRegistry taggedMetricRegistry) {
+        this.taggedMetricRegistry = taggedMetricRegistry;
+    }
+
+    public AsyncClusterSession getAsyncSession(CassandraKeyValueServiceConfig config) {
+        CassandraClusterSessionPair cassandraClusterSessionPair = getCassandraClusterSessionPair(config);
+
+        long curId = sessionId.getAndIncrement();
+        String sessionName = cassandraClusterSessionPair.cluster().getClusterName()
+                + "-session" + (curId == 0 ? "" : "-" + curId);
+
+        ThreadFactory threadFactory = new ThreadFactoryBuilder()
+                .setNameFormat(sessionName + "-%d")
+                .build();
+
+        return AsyncClusterSessionImpl.create(sessionName, cassandraClusterSessionPair,
+                taggedMetricRegistry, threadFactory);
+    }
+
+    public void closeClusterSession(AsyncClusterSession asyncClusterSession) {
+        // in this case nothing happens as the
+        if (!(asyncClusterSession instanceof AsyncClusterSessionImpl)) {
+            log.warn("Closing session which was not opened by this manager");
+        }
+    }
+
+    private CassandraClusterSessionPair getCassandraClusterSessionPair(CassandraKeyValueServiceConfig config) {
+        return clusters.get(ImmutableUniqueCassandraCluster.of(config.servers()),
+                key -> createCassandraClusterSessionPair(config)
+        );
+    }
+
+    private CassandraClusterSessionPair createCassandraClusterSessionPair(CassandraKeyValueServiceConfig config) {
+        Cluster cluster = createCluster(config);
+
+        Session session = cluster.connect();
+
+        return ImmutableCassandraClusterSessionPair.of(cluster, session);
     }
 
 
@@ -159,19 +207,6 @@ public final class AsyncSessionManager {
 
 
         return buildCluster(clusterBuilder);
-    }
-
-    private ListenableFuture<AsyncClusterSession> createSession(Cluster cluster) {
-        long curId = sessionId.getAndIncrement();
-        String sessionName = cluster.getClusterName() + "-session" + (curId == 0 ? "" : "-" + curId);
-
-        ThreadFactory threadFactory = new ThreadFactoryBuilder()
-                .setNameFormat(sessionName + "-%d")
-                .build();
-
-        return Futures.transform(cluster.connectAsync(),
-                session -> AsyncClusterSessionImpl.create(sessionName, session, taggedMetricRegistry, threadFactory),
-                MoreExecutors.directExecutor());
     }
 
     private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config,

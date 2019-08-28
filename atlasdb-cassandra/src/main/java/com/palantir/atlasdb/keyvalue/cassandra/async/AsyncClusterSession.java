@@ -39,4 +39,7 @@ public interface AsyncClusterSession extends Closeable {
 
     ListenableFuture<Map<Cell, Value>> getAsync(String keySpace, TableReference tableRef,
             Map<Cell, Long> timestampByCell);
+
+    @Override
+    void close();
 }

@@ -16,7 +16,6 @@
 
 package com.palantir.atlasdb.keyvalue.cassandra.async;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -27,12 +26,12 @@ import javax.annotation.Nonnull;
 import com.codahale.metrics.Metric;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.TableReference;
 import com.palantir.atlasdb.keyvalue.api.Value;
+import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncSessionManager.CassandraClusterSessionPair;
 import com.palantir.common.streams.KeyedStream;
 import com.palantir.tritium.metrics.registry.MetricName;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
@@ -41,29 +40,29 @@ import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 
     private final StatementPreparation statementPreparation;
-    private final Session session;
+    private final CassandraClusterSessionPair pair;
     private final String sessionName;
     private final Executor executor;
 
     @Nonnull
-    public static AsyncClusterSessionImpl create(String clusterName, Session session,
+    public static AsyncClusterSessionImpl create(String clusterName, CassandraClusterSessionPair pair,
             TaggedMetricRegistry taggedMetricRegistry, ThreadFactory threadFactory) {
         // TODO (OStevan): profile usage and see what value for cache size makes sense
-        StatementPreparation statementPreparation = PerOperationStatementPreparation.create(session,
+        StatementPreparation statementPreparation = PerOperationStatementPreparation.create(pair.session(),
                 taggedMetricRegistry, 100);
-        return create(clusterName, session, statementPreparation,
+        return create(clusterName, pair, statementPreparation,
                 Executors.newCachedThreadPool(threadFactory));
     }
 
-    public static AsyncClusterSessionImpl create(String clusterName, Session session,
+    public static AsyncClusterSessionImpl create(String clusterName, CassandraClusterSessionPair pair,
             StatementPreparation statementPreparation, Executor executor) {
-        return new AsyncClusterSessionImpl(clusterName, session, statementPreparation, executor);
+        return new AsyncClusterSessionImpl(clusterName, pair, statementPreparation, executor);
     }
 
-    private AsyncClusterSessionImpl(String sessionName, Session session, StatementPreparation statementPreparation,
-            Executor executor) {
+    private AsyncClusterSessionImpl(String sessionName, CassandraClusterSessionPair pair,
+            StatementPreparation statementPreparation, Executor executor) {
         this.sessionName = sessionName;
-        this.session = session;
+        this.pair = pair;
         this.statementPreparation = statementPreparation;
         this.executor = executor;
     }
@@ -77,7 +76,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     @Override
     public Map<MetricName, Metric> getMetricsSet() {
         return KeyedStream.stream(
-                session.getCluster().getMetrics()
+                pair.cluster().getMetrics()
                         .getRegistry()
                         .getMetrics())
                 .mapKeys(name -> MetricName.builder().safeName(name).build())
@@ -88,7 +87,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     public ListenableFuture<String> getCurrentTimeAsync() {
         PreparedStatement preparedStatement = statementPreparation.prepareCurrentTimeStatement();
 
-        return Futures.transform(session.executeAsync(preparedStatement.bind()),
+        return Futures.transform(pair.session().executeAsync(preparedStatement.bind()),
                 result -> {
                     Row row;
                     StringBuilder builder = new StringBuilder();
@@ -112,7 +111,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 //                    .setBytes(StatementPreparation.FieldNameProvider.row, ByteBuffer.wrap(key.getRowName()))
 //                    .setBytes(StatementPreparation.FieldNameProvider.column, ByteBuffer.wrap(key.getColumnName()))
 //                    .setLong(StatementPreparation.FieldNameProvider.timestamp, value);
-//            return session.executeAsync(boundStatement);
+//            return pair.executeAsync(boundStatement);
 //        }).collect(Collectors.toList()));
 //
 //        ListenableFuture<Map<Cell, Value>> result;
@@ -123,7 +122,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     // TODO (OStevan): might make sense to keep a reference to unique ImmutableUniqueCassandraCluster and use it to
     //  close cluster connections one all sessions of the cluster are closed
     @Override
-    public void close() throws IOException {
-        session.close();
+    public void close() {
+        AsyncSessionManager.getAsyncSessionFactory().closeClusterSession(this);
     }
 }
