@@ -17,14 +17,12 @@
 package com.palantir.atlasdb.keyvalue.cassandra.async;
 
 import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.annotation.Nonnull;
 
@@ -43,9 +41,9 @@ import com.palantir.atlasdb.keyvalue.api.Value;
 import com.palantir.atlasdb.keyvalue.cassandra.async.AsyncSessionManager.CassandraClusterSessionPair;
 import com.palantir.common.base.Throwables;
 import com.palantir.common.streams.KeyedStream;
-import com.palantir.tracing.AsyncTracer;
 import com.palantir.tritium.metrics.registry.MetricName;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
+import com.palantir.util.Pair;
 
 
 public final class AsyncClusterSessionImpl implements AsyncClusterSession {
@@ -54,11 +52,12 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     private final CassandraClusterSessionPair pair;
     private final String sessionName;
     private final Executor executor;
+    private final AsyncQueryExecutors.AsyncQueryExecutor<Cell, Value, Map<Cell, Value>> asyncQueryExecutor;
 
     @Nonnull
     public static AsyncClusterSessionImpl create(String clusterName, CassandraClusterSessionPair pair,
             TaggedMetricRegistry taggedMetricRegistry, ThreadFactory threadFactory) {
-        // TODO (OStevan): profile usage and see what value for cache size makes sense
+        // TODO (OStevan): profile usage and see what value for cache size makes sense, possibly add a new config param
         StatementPreparation statementPreparation = PerOperationStatementPreparation.create(pair.session(),
                 taggedMetricRegistry, 100);
         return create(clusterName, pair, statementPreparation,
@@ -67,15 +66,28 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 
     public static AsyncClusterSessionImpl create(String clusterName, CassandraClusterSessionPair pair,
             StatementPreparation statementPreparation, Executor executor) {
-        return new AsyncClusterSessionImpl(clusterName, pair, statementPreparation, executor);
+
+        AsyncQueryExecutors.AsyncQueryExecutor<Cell, Value, Map<Cell, Value>> asyncQueryExecutor =
+                new AsyncQueryExecutors.AsyncQueryExecutor<>(executor, pair.session());
+
+
+        return new AsyncClusterSessionImpl(clusterName, pair, statementPreparation, executor, asyncQueryExecutor);
+    }
+
+    public static AsyncClusterSessionImpl create(String clusterName, CassandraClusterSessionPair pair,
+            StatementPreparation statementPreparation, Executor executor,
+            AsyncQueryExecutors.AsyncQueryExecutor<Cell, Value, Map<Cell, Value>> asyncQueryExecutor) {
+        return new AsyncClusterSessionImpl(clusterName, pair, statementPreparation, executor, asyncQueryExecutor);
     }
 
     private AsyncClusterSessionImpl(String sessionName, CassandraClusterSessionPair pair,
-            StatementPreparation statementPreparation, Executor executor) {
+            StatementPreparation statementPreparation, Executor executor,
+            AsyncQueryExecutors.AsyncQueryExecutor<Cell, Value, Map<Cell, Value>> asyncQueryExecutor) {
         this.sessionName = sessionName;
         this.pair = pair;
         this.statementPreparation = statementPreparation;
         this.executor = executor;
+        this.asyncQueryExecutor = asyncQueryExecutor;
     }
 
     @Nonnull
@@ -125,38 +137,34 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             Map<Cell, Long> timestampByCell) {
         try {
             PreparedStatement preparedStatement = statementPreparation.prepareGetStatement(keySpace, tableRef);
-            // maybe something smarter then per cell query is smarter but we are counting that cassandra can optimise
-            // the sending of queries
-            List<ListenableFuture<Map<Cell, Value>>> allResults = timestampByCell.entrySet().parallelStream().map(
-                    entry -> {
-                        BoundStatement boundStatement = preparedStatement.bind()
-                                .setBytes(StatementPreparation.FieldNameProvider.row,
-                                        ByteBuffer.wrap(entry.getKey().getRowName()))
-                                .setBytes(StatementPreparation.FieldNameProvider.column,
-                                        ByteBuffer.wrap(entry.getKey().getColumnName()))
-                                .setLong(StatementPreparation.FieldNameProvider.timestamp, entry.getValue());
-                        VisitorWithState visitor = new VisitorWithState(entry.getKey());
-                        return Futures.transformAsync(pair.session().executeAsync(boundStatement), iterate(visitor),
-                                executor);
-                    }).collect(Collectors.toList());
 
-            return transform(Futures.allAsList(allResults), results -> {
-                ImmutableMap.Builder<Cell, Value> builder = ImmutableMap.builder();
-                results.forEach(builder::putAll);
-                return builder.build();
-            });
+
+            Stream<Pair<Cell, BoundStatement>> boundStatementStream = timestampByCell.entrySet().parallelStream().map(
+                    entry ->
+                            new Pair<>(entry.getKey(),
+                                    preparedStatement.bind()
+                                            .setBytes(StatementPreparation.FieldNameProvider.row,
+                                                    ByteBuffer.wrap(entry.getKey().getRowName()))
+                                            .setBytes(StatementPreparation.FieldNameProvider.column,
+                                                    ByteBuffer.wrap(entry.getKey().getColumnName()))
+                                            .setLong(StatementPreparation.FieldNameProvider.timestamp, entry.getValue())
+                            )
+            );
+
+            return asyncQueryExecutor.executeQueries(boundStatementStream, VisitorWithState::new, this::iterate,
+                    results -> {
+                        ImmutableMap.Builder<Cell, Value> builder = ImmutableMap.builder();
+                        results.stream().map(AsyncQueryExecutors.Visitor::result).forEach(builder::putAll);
+                        return builder.build();
+                    });
+
         } catch (Exception e) {
             return Futures.immediateFailedFuture(Throwables.unwrapAndThrowAtlasDbDependencyException(e));
         }
     }
 
-    private <I, O> ListenableFuture<O> transform(ListenableFuture<I> input, Function<? super I, ? extends O> function) {
-        AsyncTracer asyncTracer = new AsyncTracer();
-        return Futures.transform(input, i -> asyncTracer.withTrace(() -> function.apply(i)),
-                executor);
-    }
-
-    private AsyncFunction<ResultSet, Map<Cell, Value>> iterate(final VisitorWithState visitor) {
+    private <V, R> AsyncFunction<ResultSet, AsyncQueryExecutors.Visitor<V, R>> iterate(
+            final AsyncQueryExecutors.Visitor<V, R> visitor) {
         return rs -> {
             // How far we can go without triggering the blocking fetch:
             int remainingInPage = rs.getAvailableWithoutFetching();
@@ -165,7 +173,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
 
             boolean wasLastPage = rs.getExecutionInfo().getPagingState() == null;
             if (wasLastPage) {
-                return Futures.immediateFuture(visitor.result());
+                return Futures.immediateFuture(visitor);
             } else {
                 ListenableFuture<ResultSet> future = rs.fetchMoreResults();
                 return Futures.transformAsync(future, iterate(visitor), executor);
@@ -174,7 +182,8 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     }
 
 
-    private static class VisitorWithState {
+    private static class VisitorWithState implements AsyncQueryExecutors.Visitor<Value, Map<Cell, Value>> {
+        // very likely doesn't need to be atomic
         private final AtomicReference<Value> maxValue = new AtomicReference<>();
         private final Cell associatedCell;
 
