@@ -217,21 +217,16 @@ public final class AsyncSessionManager {
     }
 
     private static SSLOptions sslOptions(CassandraKeyValueServiceConfig config) {
-        return config.sslConfiguration().map(
-                sslConfiguration -> {
-                    SSLContext sslContext = SslSocketFactories.createSslContext(sslConfiguration);
-                    return RemoteEndpointAwareJdkSSLOptions.builder()
-                            .withSSLContext(sslContext)
-                            .build();
-                }).orElse(
-                config.ssl().map(option -> {
-                    if (option) {
-                        return RemoteEndpointAwareJdkSSLOptions.builder().build();
-                    } else {
-                        return null;
-                    }
-                }).orElse(null)
-        );
+        if (config.sslConfiguration().isPresent()) {
+            SSLContext sslContext = SslSocketFactories.createSslContext(config.sslConfiguration().get());
+            return RemoteEndpointAwareJdkSSLOptions.builder()
+                    .withSSLContext(sslContext)
+                    .build();
+        } else if (config.ssl().isPresent() && config.ssl().get()) {
+            return RemoteEndpointAwareJdkSSLOptions.builder().build();
+        } else {
+            return null;
+        }
     }
 
     private static PoolingOptions poolingOptions(CassandraKeyValueServiceConfig config) {

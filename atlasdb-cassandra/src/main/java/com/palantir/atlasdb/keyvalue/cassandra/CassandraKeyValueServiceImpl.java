@@ -27,7 +27,6 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -68,7 +67,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.palantir.async.initializer.AsyncInitializer;
 import com.palantir.atlasdb.AtlasDbConstants;
@@ -408,21 +406,6 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
         this.cassandraTableTruncator = new CassandraTableTruncator(queryRunner, clientPool);
         this.cassandraTableDropper = new CassandraTableDropper(config, clientPool, tableMetadata,
                 cassandraTableTruncator);
-
-        // temp stupid runner for testing running
-
-        ListenableFuture<String> future = this.asyncClusterSession.getCurrentTimeAsync();
-
-        future.addListener(() -> {
-            try {
-                log.info("Time received from Cassandra cluster async:" + future.get());
-            } catch (InterruptedException e) {
-                log.info("Interrupted exception on async time request", e);
-            } catch (ExecutionException e) {
-                log.info("Execution exception on test time of cluster", e);
-            }
-        }, MoreExecutors.directExecutor());
-
     }
 
     private static ExecutorService createInstrumentedFixedThreadPool(CassandraKeyValueServiceConfig config,
