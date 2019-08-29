@@ -1934,7 +1934,6 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
 
     @Override
     public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
-        // TODO (OStevan): implement async
-        return null;
+        return asyncClusterSession.getAsync(config.getKeyspaceOrThrow(), tableRef, timestampByCell);
     }
 }

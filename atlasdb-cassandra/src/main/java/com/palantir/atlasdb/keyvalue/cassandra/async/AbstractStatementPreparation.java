@@ -31,7 +31,7 @@ public abstract class AbstractStatementPreparation implements StatementPreparati
 
     protected static final String TIME_PATTERN = "SELECT dateof(now()) FROM %s.local ;";
     protected static final String GET_PATTERN =
-            "SELECT * FROM %s "
+            "SELECT " + FieldNameProvider.value + ',' + FieldNameProvider.timestamp + " FROM %s "
                     + "WHERE " + FieldNameProvider.row + " =:" + FieldNameProvider.row
                     + " AND " + FieldNameProvider.column + " =:" + FieldNameProvider.column
                     + " AND " + FieldNameProvider.timestamp + " >:" + FieldNameProvider.timestamp + " ;";
