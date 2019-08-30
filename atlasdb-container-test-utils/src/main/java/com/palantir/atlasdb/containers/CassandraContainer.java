@@ -20,9 +20,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
+import com.palantir.atlasdb.cassandra.CassandraServersConfigs;
 import com.palantir.atlasdb.cassandra.ImmutableCassandraCredentialsConfig;
 import com.palantir.atlasdb.cassandra.ImmutableCassandraKeyValueServiceConfig;
 import com.palantir.atlasdb.config.ImmutableLeaderConfig;
@@ -58,7 +58,7 @@ public class CassandraContainer extends Container {
     private CassandraContainer(String dockerComposeFile, String name) {
         String keyspace = UUID.randomUUID().toString().replace("-", "_");
         this.config = ImmutableCassandraKeyValueServiceConfig.builder()
-                .addServers(forService(name))
+                .servers(new CassandraServersConfigs.DeprecatedCassandraServersConfig(forService(name)))
                 .keyspace(keyspace)
                 .credentials(ImmutableCassandraCredentialsConfig.builder()
                         .username(USERNAME)
@@ -69,14 +69,6 @@ public class CassandraContainer extends Container {
                 .mutationBatchSizeBytes(10000000)
                 .fetchBatchCount(1000)
                 .replicationFactor(1)
-                .addressTranslation(ImmutableMap.of("cassandra",
-                        new InetSocketAddress("localhost", 9042),
-                        "cassandra1",
-                        new InetSocketAddress("localhost", 9042),
-                        "cassandra2",
-                        new InetSocketAddress("localhost", 9042),
-                        "cassandra3",
-                        new InetSocketAddress("localhost", 9042)))
                 .build();
         this.dockerComposeFile = dockerComposeFile;
         this.name = name;

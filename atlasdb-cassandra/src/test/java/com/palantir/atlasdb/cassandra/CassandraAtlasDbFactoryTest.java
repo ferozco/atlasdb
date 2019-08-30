@@ -33,7 +33,8 @@ import com.palantir.atlasdb.spi.KeyValueServiceRuntimeConfig;
 public class CassandraAtlasDbFactoryTest {
     private static final String KEYSPACE = "ks";
     private static final String KEYSPACE_2 = "ks2";
-    private static final ImmutableSet<InetSocketAddress> SERVERS = ImmutableSet.of(new InetSocketAddress("foo", 42));
+    private static final CassandraServersConfigs.DeprecatedCassandraServersConfig SERVERS =
+            new CassandraServersConfigs.DeprecatedCassandraServersConfig(new InetSocketAddress("foo", 42));
     private static final CassandraCredentialsConfig CREDENTIALS =
             ImmutableCassandraCredentialsConfig.builder()
                     .username("username")

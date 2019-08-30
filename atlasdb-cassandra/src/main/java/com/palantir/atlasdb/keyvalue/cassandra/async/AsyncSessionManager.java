@@ -16,7 +16,6 @@
 
 package com.palantir.atlasdb.keyvalue.cassandra.async;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
@@ -186,7 +185,7 @@ public final class AsyncSessionManager {
     }
 
     private CassandraClusterSessionPair getCassandraClusterSessionPair(CassandraKeyValueServiceConfig config) {
-        return clusters.get(ImmutableUniqueCassandraCluster.of(config.servers()),
+        return clusters.get(ImmutableUniqueCassandraCluster.of(config.servers().cql()),
                 key -> createCassandraClusterSessionPair(config)
         );
     }
@@ -235,7 +234,7 @@ public final class AsyncSessionManager {
 
     private static Collection<InetSocketAddress> contactPoints(CassandraKeyValueServiceConfig config,
             SimpleAddressTranslator mapper) {
-        return config.servers().stream().map(
+        return config.servers().cql().stream().map(
                 mapper::translate).collect(
                 Collectors.toList());
     }
@@ -278,7 +277,7 @@ public final class AsyncSessionManager {
 
         // If user wants, do not automatically add in new nodes to pool (useful during DC migrations / rebuilds)
         if (!config.autoRefreshNodes()) {
-            policy = new WhiteListPolicy(policy, config.servers());
+            policy = new WhiteListPolicy(policy, config.servers().cql());
         }
 
         // also try and select coordinators who own the data we're talking about to avoid an extra hop,

@@ -33,7 +33,9 @@ import com.palantir.atlasdb.config.AtlasDbConfigs;
 public class CassandraKeyValueServiceConfigsTest {
     private static final String KEYSPACE = "ks";
     private static final String KEYSPACE_2 = "ks2";
-    private static final ImmutableSet<InetSocketAddress> SERVERS = ImmutableSet.of(new InetSocketAddress("foo", 42));
+    private static final CassandraServersConfigs.DeprecatedCassandraServersConfig SERVERS =
+            new CassandraServersConfigs.DeprecatedCassandraServersConfig(
+                    ImmutableSet.of(new InetSocketAddress("foo", 42)));
     private static final CassandraCredentialsConfig CREDENTIALS =
             ImmutableCassandraCredentialsConfig.builder()
                     .username("username")
@@ -57,7 +59,7 @@ public class CassandraKeyValueServiceConfigsTest {
     public void canDeserialize() throws IOException, URISyntaxException {
         CassandraKeyValueServiceConfig testConfig = ImmutableCassandraKeyValueServiceConfig.builder()
                 .servers(SERVERS)
-                .addressTranslation(ImmutableMap.of("test", Iterables.getOnlyElement(SERVERS)))
+                .addressTranslation(ImmutableMap.of("test", Iterables.getOnlyElement(SERVERS.thrift())))
                 .replicationFactor(1)
                 .credentials(CREDENTIALS)
                 .build();

@@ -33,18 +33,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
+import com.palantir.atlasdb.cassandra.CassandraServersConfigs;
 
 public class CassandraKeyValueServicesSchemaConsensusTest {
     private static CassandraKeyValueServiceConfig config = mock(CassandraKeyValueServiceConfig.class);
     private static CassandraKeyValueServiceConfig waitingConfig = mock(CassandraKeyValueServiceConfig.class);
     private static CassandraClient client = mock(CassandraClient.class);
 
-    private static final Set<InetSocketAddress> FIVE_SERVERS = ImmutableSet.of(
-            new InetSocketAddress("1", 0),
-            new InetSocketAddress("2", 0),
-            new InetSocketAddress("3", 0),
-            new InetSocketAddress("4", 0),
-            new InetSocketAddress("5", 0));
+    private static final CassandraServersConfigs.DeprecatedCassandraServersConfig FIVE_SERVERS =
+            new CassandraServersConfigs.DeprecatedCassandraServersConfig(
+                    new InetSocketAddress("1", 0),
+                    new InetSocketAddress("2", 0),
+                    new InetSocketAddress("3", 0),
+                    new InetSocketAddress("4", 0),
+                    new InetSocketAddress("5", 0));
     private static final String TABLE = "table";
     private static final String VERSION_1 = "v1";
     private static final String VERSION_2 = "v2";
@@ -135,7 +137,7 @@ public class CassandraKeyValueServicesSchemaConsensusTest {
     private void assertWaitForSchemaVersionsThrowsAndContainsConfigNodesInformation() {
         assertThatThrownBy(() -> CassandraKeyValueServices.waitForSchemaVersions(config, client, TABLE))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining(FIVE_SERVERS.iterator().next().getHostName());
+                .hasMessageContaining(FIVE_SERVERS.thrift().iterator().next().getHostName());
     }
 
     private void assertWaitForSchemaVersionsDoesNotThrow() throws TException {
