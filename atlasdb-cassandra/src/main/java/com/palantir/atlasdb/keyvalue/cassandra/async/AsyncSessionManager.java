@@ -19,7 +19,9 @@ package com.palantir.atlasdb.keyvalue.cassandra.async;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -53,8 +55,10 @@ import com.datastax.driver.core.policies.WhiteListPolicy;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
+import com.palantir.common.base.Throwables;
 import com.palantir.conjure.java.config.ssl.SslSocketFactories;
 import com.palantir.logsafe.Preconditions;
 import com.palantir.logsafe.SafeArg;
@@ -189,10 +193,16 @@ public final class AsyncSessionManager {
 
     private CassandraClusterSessionPair createCassandraClusterSessionPair(CassandraKeyValueServiceConfig config) {
         Cluster cluster = createCluster(config);
+        Session session = null;
 
-        Session session = cluster.connect();
+        try {
+             session = cluster.connectAsync().get();
+        } catch (Exception e) {
+            log.warn("Error on cluster connection");
+            Throwables.unwrapAndThrowAtlasDbDependencyException(e);
+        }
 
-        return ImmutableCassandraClusterSessionPair.of(cluster, session);
+        return ImmutableCassandraClusterSessionPair.of(cluster, Objects.requireNonNull(session));
     }
 
 
