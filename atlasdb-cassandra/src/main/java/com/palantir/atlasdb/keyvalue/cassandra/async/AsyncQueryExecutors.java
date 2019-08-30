@@ -117,7 +117,7 @@ public class AsyncQueryExecutors {
         }
 
         /**
-         * Executes one query and returns a ListenableFuture containing the result
+         * Executes one query and returns a ListenableFuture containing the result.
          *
          * @param statement to be executed
          * @param visitor which will be used to process the result of query execution

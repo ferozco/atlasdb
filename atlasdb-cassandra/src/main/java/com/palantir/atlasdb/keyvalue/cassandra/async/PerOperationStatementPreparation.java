@@ -41,10 +41,11 @@ public final class PerOperationStatementPreparation extends AbstractStatementPre
                         Collectors.toMap(
                                 Function.identity(),
                                 operation -> {
-                                    if (taggedMetricRegistry != null)
+                                    if (taggedMetricRegistry != null) {
                                         return createAndRegisterCache(taggedMetricRegistry, operation, cacheSize);
-                                    else
+                                    } else {
                                         return createCache(cacheSize);
+                                    }
                                 }
                         ),
                         ImmutableMap::copyOf

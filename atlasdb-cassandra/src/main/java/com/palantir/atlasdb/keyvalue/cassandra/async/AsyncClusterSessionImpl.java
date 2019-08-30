@@ -27,7 +27,6 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 
 import com.codahale.metrics.Metric;
-import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
