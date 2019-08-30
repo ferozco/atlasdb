@@ -31,6 +31,7 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Statement;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -138,7 +139,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             PreparedStatement preparedStatement = statementPreparation.prepareGetStatement(keySpace, tableRef);
 
 
-            Stream<Pair<Cell, BoundStatement>> boundStatementStream = timestampByCell.entrySet().parallelStream().map(
+            Stream<Pair<Cell, Statement>> cellStatementStream = timestampByCell.entrySet().parallelStream().map(
                     entry ->
                             new Pair<>(entry.getKey(),
                                     preparedStatement.bind()
@@ -150,7 +151,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
                             )
             );
 
-            return asyncQueryExecutor.executeQueries(boundStatementStream, VisitorWithState::new,
+            return asyncQueryExecutor.executeQueries(cellStatementStream, VisitorWithState::new,
                     results -> {
                         ImmutableMap.Builder<Cell, Value> builder = ImmutableMap.builder();
                         results.stream().map(AsyncQueryExecutors.Visitor::result).forEach(builder::putAll);
@@ -191,12 +192,12 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             return ImmutableMap.of(associatedCell, maxValue.get());
         }
 
-        public void visitResultSet(ResultSet rs, int remainingInPage) {
-            int remaining = remainingInPage;
+        public void visitResultSet(ResultSet resultSet, int numberOfRowsToVisit) {
+            int remaining = numberOfRowsToVisit;
             if (remaining <= 0) {
                 return;
             }
-            for (Row row : rs) {
+            for (Row row : resultSet) {
                 visit(Value.create(row.getBytes(0).array(), row.getLong(1)));
                 if (--remaining == 0) {
                     return;

@@ -23,7 +23,6 @@ import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 public class UnifiedStatementPreparation extends AbstractStatementPreparation {
     private final Cache<String, PreparedStatement> cache;
-    private final TaggedMetricRegistry taggedMetricRegistry;
     private final Session session;
 
     // factory functions
@@ -34,15 +33,15 @@ public class UnifiedStatementPreparation extends AbstractStatementPreparation {
 
     public static UnifiedStatementPreparation create(Session session, TaggedMetricRegistry taggedMetricRegistry,
             int cacheSize) {
-        return new UnifiedStatementPreparation(session,
-                taggedMetricRegistry,
-                createAndRegisterCache(taggedMetricRegistry, ALL, cacheSize));
+        return new UnifiedStatementPreparation(session, createAndRegisterCache(taggedMetricRegistry, ALL, cacheSize));
     }
 
-    public UnifiedStatementPreparation(Session session, TaggedMetricRegistry taggedMetricRegistry,
-            Cache<String, PreparedStatement> cache) {
+    public static UnifiedStatementPreparation create(Session session, int cacheSize) {
+        return new UnifiedStatementPreparation(session, createCache(cacheSize));
+    }
+
+    public UnifiedStatementPreparation(Session session, Cache<String, PreparedStatement> cache) {
         this.session = session;
-        this.taggedMetricRegistry = taggedMetricRegistry;
         this.cache = cache;
     }
 

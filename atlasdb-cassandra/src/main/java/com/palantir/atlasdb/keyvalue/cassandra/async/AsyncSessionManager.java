@@ -124,7 +124,7 @@ public final class AsyncSessionManager {
     public static AsyncSessionManager getOrInitializeAsyncSessionManager() {
         return FACTORY.updateAndGet(previous -> {
             if (previous == null) {
-                return new AsyncSessionManager(SharedTaggedMetricRegistries.getSingleton());
+                return new AsyncSessionManager();
             } else {
                 return previous;
             }
@@ -154,6 +154,10 @@ public final class AsyncSessionManager {
 
     private AsyncSessionManager(TaggedMetricRegistry taggedMetricRegistry) {
         this.taggedMetricRegistry = taggedMetricRegistry;
+    }
+
+    private AsyncSessionManager() {
+        this.taggedMetricRegistry = null;
     }
 
     public AsyncClusterSession getAsyncSession(CassandraKeyValueServiceConfig config) {

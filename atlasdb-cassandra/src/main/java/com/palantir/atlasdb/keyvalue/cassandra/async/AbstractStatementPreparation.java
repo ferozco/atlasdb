@@ -46,6 +46,10 @@ public abstract class AbstractStatementPreparation implements StatementPreparati
         return cache;
     }
 
+    protected static Cache<String, PreparedStatement> createCache(int cacheSize) {
+        return Caffeine.newBuilder().maximumSize(cacheSize).build();
+    }
+
     // TODO (OStevan): prone to injection, fix this with some pattern match checking
     protected static String normalizeName(String keyspace, TableReference tableReference) {
         return keyspace + "." + tableReference.getQualifiedName();

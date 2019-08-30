@@ -16,12 +16,12 @@
 
 package com.palantir.atlasdb.keyvalue.cassandra.async;
 
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
@@ -37,11 +37,15 @@ public final class PerOperationStatementPreparation extends AbstractStatementPre
     public static PerOperationStatementPreparation create(Session session, TaggedMetricRegistry taggedMetricRegistry,
             int cacheSize) {
         return new PerOperationStatementPreparation(session,
-                taggedMetricRegistry,
                 SUPPORTED_OPERATIONS.stream().collect(Collectors.collectingAndThen(
                         Collectors.toMap(
-                                Functions.identity(),
-                                operation -> createAndRegisterCache(taggedMetricRegistry, operation, cacheSize)
+                                Function.identity(),
+                                operation -> {
+                                    if (taggedMetricRegistry != null)
+                                        return createAndRegisterCache(taggedMetricRegistry, operation, cacheSize);
+                                    else
+                                        return createCache(cacheSize);
+                                }
                         ),
                         ImmutableMap::copyOf
                         )
@@ -50,15 +54,12 @@ public final class PerOperationStatementPreparation extends AbstractStatementPre
 
     // instance fields, constructor and methods
     private final ImmutableMap<String, Cache<String, PreparedStatement>> requestToCacheMap;
-    private final TaggedMetricRegistry taggedMetricRegistry;
     private final Session session;
 
     private PerOperationStatementPreparation(
             Session session,
-            TaggedMetricRegistry taggedMetricRegistry,
             ImmutableMap<String, Cache<String, PreparedStatement>> requestToCacheMap) {
         this.session = session;
-        this.taggedMetricRegistry = taggedMetricRegistry;
         this.requestToCacheMap = requestToCacheMap;
     }
 
