@@ -224,6 +224,7 @@ public final class AsyncSessionManager {
                 .withRetryPolicy(retryPolicy(config))
                 .withSSL(sslOptions(config))
                 .withAddressTranslator(mapper)
+                .withoutJMXReporting() // temporary solution
                 .withThreadingOptions(new ThreadingOptions());
 
 
