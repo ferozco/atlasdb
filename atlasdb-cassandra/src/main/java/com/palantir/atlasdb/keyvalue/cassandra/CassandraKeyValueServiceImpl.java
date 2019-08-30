@@ -208,7 +208,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
     private final MetricsManager metricsManager;
     private final CassandraKeyValueServiceConfig config;
     private final CassandraClientPool clientPool;
-    private final AsyncClusterSession asyncClusterSession;
+    private final Optional<AsyncClusterSession> asyncClusterSession;
 
     private ConsistencyLevel readConsistency = ConsistencyLevel.LOCAL_QUORUM;
 
@@ -234,8 +234,9 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
         MetricsManager metricsManager = MetricsManagers.createForTests();
         AsyncSessionManager.initialize(metricsManager.getTaggedRegistry());
         Logger logger = LoggerFactory.getLogger(CassandraKeyValueService.class);
+        AsyncClusterSession session;
         try {
-            AsyncSessionManager.getOrInitializeAsyncSessionManager().getAsyncSession(config);
+            session = AsyncSessionManager.getOrInitializeAsyncSessionManager().getAsyncSession(config);
         } catch (Exception e) {
             logger.warn("Creation of async client failed: {}", e.getMessage());
             throw Throwables.unwrapAndThrowAtlasDbDependencyException(e);
@@ -248,7 +249,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
         return createAndOpenCassandraConnection(metricsManager, config,
                 CassandraKeyValueServiceRuntimeConfig::getDefault,
                 clientPool,
-                null,
+                Optional.of(session),
                 CassandraMutationTimestampProviders.legacyModeForTestsOnly(),
                 logger,
                 AtlasDbConstants.DEFAULT_INITIALIZE_ASYNC);
@@ -263,7 +264,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
         return createAndOpenCassandraConnection(metricsManager, config,
                 CassandraKeyValueServiceRuntimeConfig::getDefault,
                 clientPool,
-                null,
+                Optional.empty(),
                 CassandraMutationTimestampProviders.legacyModeForTestsOnly(),
                 LoggerFactory.getLogger(CassandraKeyValueService.class),
                 AtlasDbConstants.DEFAULT_INITIALIZE_ASYNC);
@@ -290,7 +291,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 config,
                 CassandraKeyValueServiceRuntimeConfig::getDefault,
                 clientPool,
-                null,
+                Optional.empty(),
                 mutationTimestampProvider,
                 LoggerFactory.getLogger(CassandraKeyValueService.class),
                 AtlasDbConstants.DEFAULT_INITIALIZE_ASYNC);
@@ -340,7 +341,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                 config,
                 runtimeConfigSupplier,
                 clientPool,
-                null,
+                Optional.empty(),
                 mutationTimestampProvider,
                 log,
                 initializeAsync);
@@ -351,7 +352,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
-            AsyncClusterSession asyncClusterSession,
+            Optional<AsyncClusterSession> asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider,
             Logger log,
             boolean initializeAsync) {
@@ -371,7 +372,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
-            AsyncClusterSession asyncClusterSession,
+            Optional<AsyncClusterSession> asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider,
             Logger log,
             boolean initializeAsync) {
@@ -393,7 +394,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
             CassandraKeyValueServiceConfig config,
             Supplier<CassandraKeyValueServiceRuntimeConfig> runtimeConfigSupplier,
             CassandraClientPool clientPool,
-            AsyncClusterSession asyncClusterSession,
+            Optional<AsyncClusterSession> asyncClusterSession,
             CassandraMutationTimestampProvider mutationTimestampProvider) {
         super(createInstrumentedFixedThreadPool(config, metricsManager.getRegistry()));
         this.log = log;
@@ -1651,7 +1652,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
     @Override
     public void close() {
         clientPool.shutdown();
-        asyncClusterSession.close();
+        asyncClusterSession.ifPresent(AsyncClusterSession::close);
         super.close();
     }
 
@@ -1932,6 +1933,8 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
 
     @Override
     public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
-        return asyncClusterSession.getAsync(config.getKeyspaceOrThrow(), tableRef, timestampByCell);
+        return asyncClusterSession
+                .map(session -> session.getAsync(config.getKeyspaceOrThrow(), tableRef, timestampByCell))
+                .orElseThrow(NullPointerException::new);
     }
 }
