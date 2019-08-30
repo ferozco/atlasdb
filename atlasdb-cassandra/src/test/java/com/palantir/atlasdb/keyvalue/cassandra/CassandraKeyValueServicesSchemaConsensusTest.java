@@ -23,7 +23,6 @@ import static org.mockito.Mockito.when;
 
 import java.net.InetSocketAddress;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.thrift.TException;
 import org.junit.BeforeClass;
@@ -31,7 +30,6 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
 import com.palantir.atlasdb.cassandra.CassandraServersConfigs;
 

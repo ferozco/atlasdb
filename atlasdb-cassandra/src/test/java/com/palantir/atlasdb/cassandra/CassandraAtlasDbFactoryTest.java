@@ -26,7 +26,6 @@ import java.util.function.Supplier;
 
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableSet;
 import com.palantir.atlasdb.spi.KeyValueServiceConfigHelper;
 import com.palantir.atlasdb.spi.KeyValueServiceRuntimeConfig;
 
