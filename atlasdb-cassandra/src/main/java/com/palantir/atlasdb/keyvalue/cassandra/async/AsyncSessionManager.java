@@ -58,6 +58,7 @@ import com.palantir.atlasdb.cassandra.CassandraKeyValueServiceConfig;
 import com.palantir.conjure.java.config.ssl.SslSocketFactories;
 import com.palantir.logsafe.Preconditions;
 import com.palantir.logsafe.SafeArg;
+import com.palantir.tritium.metrics.registry.SharedTaggedMetricRegistries;
 import com.palantir.tritium.metrics.registry.TaggedMetricRegistry;
 
 public final class AsyncSessionManager {
@@ -120,12 +121,21 @@ public final class AsyncSessionManager {
                 "Already initialized");
     }
 
-    public static AsyncSessionManager getAsyncSessionFactory() {
+    public static AsyncSessionManager getOrInitializeAsyncSessionManager() {
+        return FACTORY.updateAndGet(previous -> {
+            if (previous == null) {
+                return new AsyncSessionManager(SharedTaggedMetricRegistries.getSingleton());
+            } else {
+                return previous;
+            }
+        });
+    }
+
+    public static AsyncSessionManager getAsyncSessinManager() {
         AsyncSessionManager factory = FACTORY.get();
         Preconditions.checkState(factory != null, "AsyncSessionManager is not initialized");
         return factory;
     }
-
 
     // instance fields and methods
     private final TaggedMetricRegistry taggedMetricRegistry;

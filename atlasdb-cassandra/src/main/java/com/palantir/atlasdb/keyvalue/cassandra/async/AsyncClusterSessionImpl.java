@@ -32,7 +32,6 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.keyvalue.api.Cell;
@@ -151,7 +150,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
                             )
             );
 
-            return asyncQueryExecutor.executeQueries(boundStatementStream, VisitorWithState::new, this::iterate,
+            return asyncQueryExecutor.executeQueries(boundStatementStream, VisitorWithState::new,
                     results -> {
                         ImmutableMap.Builder<Cell, Value> builder = ImmutableMap.builder();
                         results.stream().map(AsyncQueryExecutors.Visitor::result).forEach(builder::putAll);
@@ -161,24 +160,6 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
         } catch (Exception e) {
             return Futures.immediateFailedFuture(Throwables.unwrapAndThrowAtlasDbDependencyException(e));
         }
-    }
-
-    private <V, R> AsyncFunction<ResultSet, AsyncQueryExecutors.Visitor<V, R>> iterate(
-            final AsyncQueryExecutors.Visitor<V, R> visitor) {
-        return rs -> {
-            // How far we can go without triggering the blocking fetch:
-            int remainingInPage = rs.getAvailableWithoutFetching();
-
-            visitor.visitResultSet(rs, remainingInPage);
-
-            boolean wasLastPage = rs.getExecutionInfo().getPagingState() == null;
-            if (wasLastPage) {
-                return Futures.immediateFuture(visitor);
-            } else {
-                ListenableFuture<ResultSet> future = rs.fetchMoreResults();
-                return Futures.transformAsync(future, iterate(visitor), executor);
-            }
-        };
     }
 
 
@@ -228,6 +209,6 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
     //  close cluster connections one all sessions of the cluster are closed
     @Override
     public void close() {
-        AsyncSessionManager.getAsyncSessionFactory().closeClusterSession(this);
+        AsyncSessionManager.getOrInitializeAsyncSessionManager().closeClusterSession(this);
     }
 }

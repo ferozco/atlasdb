@@ -333,7 +333,7 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
                     config,
                     runtimeConfigSupplier,
                     clientPool,
-                    AsyncSessionManager.getAsyncSessionFactory().getAsyncSession(config),
+                    AsyncSessionManager.getOrInitializeAsyncSessionManager().getAsyncSession(config),
                     mutationTimestampProvider,
                     log,
                     initializeAsync);

@@ -49,28 +49,44 @@ public class AsyncQueryExecutors {
             this.session = session;
         }
 
-        private <I, O> ListenableFuture<O> transform(ListenableFuture<I> input,
-                Function<? super I, ? extends O> function) {
+        private <P, O> ListenableFuture<O> transform(ListenableFuture<P> input,
+                Function<? super P, ? extends O> function) {
             AsyncTracer asyncTracer = new AsyncTracer();
-            return Futures.transform(input, i -> asyncTracer.withTrace(() -> function.apply(i)),
+            return Futures.transform(input, p -> asyncTracer.withTrace(() -> function.apply(p)),
                     executor);
         }
 
+        private AsyncFunction<ResultSet, AsyncQueryExecutors.Visitor<V, R>> iterate(
+                final AsyncQueryExecutors.Visitor<V, R> visitor) {
+            return rs -> {
+                // How far we can go without triggering the blocking fetch:
+                int remainingInPage = rs.getAvailableWithoutFetching();
+
+                visitor.visitResultSet(rs, remainingInPage);
+
+                boolean wasLastPage = rs.getExecutionInfo().getPagingState() == null;
+                if (wasLastPage) {
+                    return Futures.immediateFuture(visitor);
+                } else {
+                    ListenableFuture<ResultSet> future = rs.fetchMoreResults();
+                    return Futures.transformAsync(future, iterate(visitor), executor);
+                }
+            };
+        }
+
         public final ListenableFuture<Visitor<V, R>> executeQuery(BoundStatement boundStatement,
-                Visitor<V, R> visitor,
-                Function<Visitor<V, R>, AsyncFunction<ResultSet, Visitor<V, R>>> iterator) {
-            return Futures.transformAsync(session.executeAsync(boundStatement), iterator.apply(visitor),
+                Visitor<V, R> visitor) {
+            return Futures.transformAsync(session.executeAsync(boundStatement), iterate(visitor),
                     executor);
         }
 
         public final ListenableFuture<R> executeQueries(Stream<Pair<I, BoundStatement>> boundStatementStream,
                 Function<I, Visitor<V, R>> visitorSupplier,
-                Function<Visitor<V, R>, AsyncFunction<ResultSet, Visitor<V, R>>> iterator,
                 Function<List<Visitor<V, R>>, R> transformer
         ) {
 
             List<ListenableFuture<Visitor<V, R>>> allResults = boundStatementStream
-                    .map(pair -> executeQuery(pair.rhSide, visitorSupplier.apply(pair.lhSide), iterator))
+                    .map(pair -> executeQuery(pair.rhSide, visitorSupplier.apply(pair.lhSide)))
                     .collect(Collectors.toList());
 
             return transform(Futures.allAsList(allResults), transformer);
