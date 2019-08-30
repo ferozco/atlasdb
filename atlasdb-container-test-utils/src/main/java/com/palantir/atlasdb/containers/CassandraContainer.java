@@ -70,6 +70,12 @@ public class CassandraContainer extends Container {
                 .fetchBatchCount(1000)
                 .replicationFactor(1)
                 .addressTranslation(ImmutableMap.of("cassandra",
+                        new InetSocketAddress("localhost", 9042),
+                        "cassandra1",
+                        new InetSocketAddress("localhost", 9042),
+                        "cassandra2",
+                        new InetSocketAddress("localhost", 9042),
+                        "cassandra3",
                         new InetSocketAddress("localhost", 9042)))
                 .build();
         this.dockerComposeFile = dockerComposeFile;

@@ -16,6 +16,7 @@
 
 package com.palantir.atlasdb.keyvalue.cassandra.async;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Collection;
 import java.util.Map;
@@ -100,7 +101,8 @@ public final class AsyncSessionManager {
 
         @Override
         public InetSocketAddress translate(InetSocketAddress address) {
-            return mapper.getOrDefault(address.getHostString(), address);
+            InetSocketAddress temp = mapper.getOrDefault(address.getHostString(), address);
+            return new InetSocketAddress(temp.getAddress(), temp.getPort());
         }
 
         @Override
