@@ -65,11 +65,17 @@ public final class AsyncQueryExecutors {
          */
         R result();
 
-        V visitRow(Row row);
+        /**
+         * Constructs a value specific for a visitor using a Row as an entry.
+         *
+         * @param row of the query ResultSet
+         * @return value constructed form the given row
+         */
+        V retrieveRow(Row row);
 
         /**
-         * Visits numberOfRowsToVisit rows from the given resultSet. Can be blocking if the number supplied is greater
-         * then the currently available if the result set without fetching.
+         * Visits numberOfRowsToVisit from the given resultSet. Can be blocking if the number supplied is greater
+         * then the currently fetched number of rows.
          *
          * @param resultSet containing the result of the query
          * @param numberOfRowsToVisit in the given resultSet
@@ -80,7 +86,7 @@ public final class AsyncQueryExecutors {
                 return;
             }
             for (Row row : resultSet) {
-                visit(visitRow(row));
+                visit(retrieveRow(row));
                 if (--remaining == 0) {
                     return;
                 }
@@ -89,7 +95,7 @@ public final class AsyncQueryExecutors {
     }
 
     static class GetQueryVisitor implements Visitor<Value, Map<Cell, Value>> {
-        // very likely doesn't need to be atomic
+        // very likely doesn't need to be atomic since it is currently used on a per query basis
         private final AtomicReference<Value> maxValue = new AtomicReference<>();
         private final Cell associatedCell;
 
@@ -117,7 +123,7 @@ public final class AsyncQueryExecutors {
         }
 
         @Override
-        public Value visitRow(Row row) {
+        public Value retrieveRow(Row row) {
             return Value.create(row.getBytes(0).array(), row.getLong(1));
         }
     }

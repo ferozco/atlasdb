@@ -38,7 +38,7 @@ public interface AsyncClusterSession extends Closeable {
     void start();
 
     /**
-     * Session method to in fact retrieve the requested data from the cluster on which a session is open
+     * Session method to in fact retrieve the requested data from the cluster on which a session is open.
      *
      * @param keySpace of the table
      * @param tableRef where to look for values

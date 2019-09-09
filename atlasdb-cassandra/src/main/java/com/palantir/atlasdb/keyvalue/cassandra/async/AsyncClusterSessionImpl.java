@@ -201,7 +201,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             }
 
             @Override
-            public String visitRow(Row row) {
+            public String retrieveRow(Row row) {
                 return row.getString(0);
             }
         }, AsyncQueryExecutors.Visitor::result);
