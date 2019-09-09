@@ -170,7 +170,7 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             return asyncQueryExecutor.executeQueries(cellStatementStream, GetQueryVisitor::new,
                     results -> {
                         ImmutableMap.Builder<Cell, Value> builder = ImmutableMap.builder();
-                        results.stream().map(AsyncQueryExecutors.Visitor::result).forEach(builder::putAll);
+                        results.forEach(builder::putAll);
                         return builder.build();
                     });
 
@@ -204,6 +204,6 @@ public final class AsyncClusterSessionImpl implements AsyncClusterSession {
             public String retrieveRow(Row row) {
                 return row.getString(0);
             }
-        }, AsyncQueryExecutors.Visitor::result);
+        });
     }
 }

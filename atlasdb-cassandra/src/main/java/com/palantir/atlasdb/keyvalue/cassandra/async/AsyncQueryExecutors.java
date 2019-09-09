@@ -34,10 +34,11 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.palantir.atlasdb.keyvalue.api.Cell;
 import com.palantir.atlasdb.keyvalue.api.Value;
+import com.palantir.logsafe.Preconditions;
 import com.palantir.tracing.AsyncTracer;
 import com.palantir.util.Pair;
 
-public final class AsyncQueryExecutors {
+final class AsyncQueryExecutors {
 
     private AsyncQueryExecutors() {
 
@@ -74,8 +75,8 @@ public final class AsyncQueryExecutors {
         V retrieveRow(Row row);
 
         /**
-         * Visits numberOfRowsToVisit from the given resultSet. Can be blocking if the number supplied is greater
-         * then the currently fetched number of rows.
+         * Visits numberOfRowsToVisit from the given resultSet. Can be blocking if the number supplied is greater then
+         * the currently fetched number of rows.
          *
          * @param resultSet containing the result of the query
          * @param numberOfRowsToVisit in the given resultSet
@@ -94,7 +95,7 @@ public final class AsyncQueryExecutors {
         }
     }
 
-    static class GetQueryVisitor implements Visitor<Value, Map<Cell, Value>> {
+    static final class GetQueryVisitor implements Visitor<Value, Map<Cell, Value>> {
         // very likely doesn't need to be atomic since it is currently used on a per query basis
         private final AtomicReference<Value> maxValue = new AtomicReference<>();
         private final Cell associatedCell;
@@ -128,12 +129,12 @@ public final class AsyncQueryExecutors {
         }
     }
 
-    static class AsyncQueryExecutor {
+    static final class AsyncQueryExecutor {
 
         private final Executor executor;
         private final Session session;
 
-        protected AsyncQueryExecutor(Executor executor, Session session) {
+        AsyncQueryExecutor(Executor executor, Session session) {
             this.executor = executor;
             this.session = session;
         }
@@ -143,19 +144,19 @@ public final class AsyncQueryExecutors {
          *
          * @param input future to transform
          * @param function which will do the transformation
-         * @param <P> type of the return value of input future
+         * @param <I> type of the return value of input future
          * @param <O> type of the future return value after transformation
          * @return transformed future
          */
-        private <P, O> ListenableFuture<O> transform(ListenableFuture<P> input,
-                Function<? super P, ? extends O> function) {
+        private <I, O> ListenableFuture<O> transform(ListenableFuture<I> input,
+                Function<? super I, ? extends O> function) {
             AsyncTracer asyncTracer = new AsyncTracer();
             return Futures.transform(input, p -> asyncTracer.withTrace(() -> function.apply(p)),
                     executor);
         }
 
         /**
-         * Returns an AsyncFunction which will iterate through the ResultSet while ahe same time paging the results
+         * Returns an AsyncFunction which will iterate through the ResultSet while at the same time paging the results
          * reducing the time spent on a blocked thread.
          *
          * @param visitor which processes the retrieved data
@@ -166,6 +167,7 @@ public final class AsyncQueryExecutors {
         private <V, R> AsyncFunction<ResultSet, Visitor<V, R>> iterate(
                 final AsyncQueryExecutors.Visitor<V, R> visitor) {
             return rs -> {
+                Preconditions.checkArgument(rs != null, "ResultSet should not be null when iterating");
                 // How far we can go without triggering the blocking fetch:
                 int remainingInPage = rs.getAvailableWithoutFetching();
 
@@ -182,23 +184,18 @@ public final class AsyncQueryExecutors {
         }
 
         /**
-         * Executes one query and returns a ListenableFuture containing the result.
+         * Executes one query and returns a ListenableFuture containing the Visitor after processing all of the
+         * results.
          *
          * @param statement to be executed
          * @param visitor which will be used to process the result of query execution
          * @param <V> type of one row row returned by a query
-         * @param <R> final result of executing all queries
+         * @param <R> final result of executing passed query
          * @return future containing the result of processing a query
          */
-        private <V, R> ListenableFuture<Visitor<V, R>> executeQuery(Statement statement,
-                Visitor<V, R> visitor) {
-            return Futures.transformAsync(session.executeAsync(statement), iterate(visitor),
-                    executor);
-        }
-
-        public <V, R> ListenableFuture<R> executeQuery(Statement statement, Visitor<V, R> visitor,
-                Function<Visitor<V, R>, R> transformer) {
-            return transform(executeQuery(statement, visitor), transformer);
+        <V, R> ListenableFuture<R> executeQuery(Statement statement, Visitor<V, R> visitor) {
+            return transform(Futures.transformAsync(session.executeAsync(statement), iterate(visitor),
+                    executor), Visitor::result);
         }
 
         /**
@@ -210,16 +207,16 @@ public final class AsyncQueryExecutors {
          * @param visitorCreator creates a visitor using the input used to create a statement
          * @param transformer used to transform results of individual queries to a single result
          * @param <I> type of input for which a corresponding query was created
-         * @param <V> type of one row row returned by a query
+         * @param <V> type of one row returned by a query
+         * @param <P> type of a partial result (executing one query)
          * @param <R> final result of executing all queries
          * @return future containing the result of processing a query
          */
-        public final <I, V, R> ListenableFuture<R> executeQueries(Stream<Pair<I, Statement>> inputStatementPairStream,
-                Function<I, Visitor<V, R>> visitorCreator,
-                Function<List<Visitor<V, R>>, R> transformer
+        <I, V, P, R> ListenableFuture<R> executeQueries(Stream<Pair<I, Statement>> inputStatementPairStream,
+                Function<I, Visitor<V, P>> visitorCreator,
+                Function<List<P>, R> transformer
         ) {
-
-            List<ListenableFuture<Visitor<V, R>>> allResults = inputStatementPairStream
+            List<ListenableFuture<P>> allResults = inputStatementPairStream
                     .map(pair -> executeQuery(pair.rhSide, visitorCreator.apply(pair.lhSide)))
                     .collect(Collectors.toList());
 
