@@ -1940,7 +1940,9 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
 
     @Override
     public ListenableFuture<Map<Cell, Value>> getAsync(TableReference tableRef, Map<Cell, Long> timestampByCell) {
-        throw new UnsupportedOperationException("Should be implemented");
+        return asyncSession
+                .map(session -> session.getAsync(config.getKeyspaceOrThrow(), tableRef, timestampByCell))
+                .orElseThrow(NullPointerException::new);
     }
 
     private static class TableCellAndValue {
