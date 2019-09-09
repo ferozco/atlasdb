@@ -1856,13 +1856,13 @@ public class CassandraKeyValueServiceImpl extends AbstractKeyValueService implem
     @Override
     public ClusterAvailabilityStatus getClusterAvailabilityStatus() {
         ClusterAvailabilityStatus clusterStatus = getStatusByRunningOperationsOnEachHost();
-        if (isClusterQuorumAvaialble(clusterStatus) && !doesConfigReplicationFactorMatchWithCluster()) {
+        if (isClusterQuorumAvailable(clusterStatus) && !doesConfigReplicationFactorMatchWithCluster()) {
             return ClusterAvailabilityStatus.TERMINAL;
         }
         return clusterStatus;
     }
 
-    private static boolean isClusterQuorumAvaialble(ClusterAvailabilityStatus clusterStatus) {
+    private static boolean isClusterQuorumAvailable(ClusterAvailabilityStatus clusterStatus) {
         return clusterStatus.equals(ClusterAvailabilityStatus.ALL_AVAILABLE)
                 || clusterStatus.equals(ClusterAvailabilityStatus.QUORUM_AVAILABLE);
     }
