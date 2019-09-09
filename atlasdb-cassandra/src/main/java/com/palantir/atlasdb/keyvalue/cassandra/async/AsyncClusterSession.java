@@ -22,6 +22,10 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 import com.codahale.metrics.Metric;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.palantir.atlasdb.keyvalue.api.Cell;
+import com.palantir.atlasdb.keyvalue.api.TableReference;
+import com.palantir.atlasdb.keyvalue.api.Value;
 import com.palantir.tritium.metrics.registry.MetricName;
 
 public interface AsyncClusterSession extends Closeable {
@@ -33,6 +37,18 @@ public interface AsyncClusterSession extends Closeable {
 
     void start();
 
+    /**
+     * Session method to in fact retrieve the requested data from the cluster on which a session is open
+     *
+     * @param keySpace of the table
+     * @param tableRef where to look for values
+     * @param timestampByCell information to use for query creation
+     * @return future with the requested data
+     */
+    ListenableFuture<Map<Cell, Value>> getAsync(String keySpace, TableReference tableRef,
+            Map<Cell, Long> timestampByCell);
+
     @Override
     void close();
+
 }
